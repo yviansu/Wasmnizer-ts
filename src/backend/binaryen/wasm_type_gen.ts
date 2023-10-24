@@ -1222,6 +1222,17 @@ export class WASMTypeGen {
                             ),
                         );
                     }
+                } else {
+                    const getterTypeRef = binaryenCAPI._BinaryenTypeFuncref();
+                    methodTypeRefs.push(getterTypeRef);
+                    if (buildIndex === -1) {
+                        vtableFuncs.push(
+                            binaryenCAPI._BinaryenRefNull(
+                                this.wasmComp.module.ptr,
+                                getterTypeRef,
+                            ),
+                        );
+                    }
                 }
 
                 if (member.hasSetter) {
@@ -1243,6 +1254,17 @@ export class WASMTypeGen {
                             this.wasmComp.module.ref.func(
                                 methodMangledName,
                                 methodType,
+                            ),
+                        );
+                    }
+                } else {
+                    const setterTypeRef = binaryenCAPI._BinaryenTypeFuncref();
+                    methodTypeRefs.push(setterTypeRef);
+                    if (buildIndex === -1) {
+                        vtableFuncs.push(
+                            binaryenCAPI._BinaryenRefNull(
+                                this.wasmComp.module.ptr,
+                                setterTypeRef,
                             ),
                         );
                     }
