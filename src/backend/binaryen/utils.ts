@@ -84,6 +84,7 @@ export enum ItableFlag {
     METHOD,
     GETTER,
     SETTER,
+    UNKNOWN,
 }
 
 export namespace UtilFuncs {
@@ -1587,6 +1588,20 @@ export namespace FunctionalFuncs {
             false,
         );
     }
+
+    export function isFieldFlag(
+        module: binaryen.Module,
+        flagRef: binaryen.ExpressionRef,
+    ) {
+        return module.i32.eq(flagRef, module.i32.const(ItableFlag.FIELD));
+    }
+
+    export function isMethodFlag(
+        module: binaryen.Module,
+        flagRef: binaryen.ExpressionRef,
+    ) {
+        return module.i32.eq(flagRef, module.i32.const(ItableFlag.METHOD));
+    }
 }
 
 export const wasmStringMap = new Map<string, number>();
@@ -1646,7 +1661,7 @@ export const enum MetaDataOffset {
     FIELDS_PTR_OFFSET = 12,
 }
 
-export const enum MetaFieldOffset {
+export const enum MetaPropertyOffset {
     NAME_OFFSET = 0,
     FLAG_AND_INDEX_OFFSET = 4,
     TYPE_OFFSET = 8,

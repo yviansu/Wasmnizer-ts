@@ -25,7 +25,7 @@ import {
     MetaDataOffset,
     META_FLAG_MASK,
     ItableFlag,
-    MetaFieldOffset,
+    MetaPropertyOffset,
     SIZE_OF_META_FIELD,
     getWASMObjectMeta,
 } from '../utils.js';
@@ -160,7 +160,7 @@ function getPropNameThroughMeta(module: binaryen.Module) {
         );
         const loopStmtsArray: binaryen.ExpressionRef[] = [];
         const flagAndIndex = module.i32.load(
-            MetaFieldOffset.FLAG_AND_INDEX_OFFSET,
+            MetaPropertyOffset.FLAG_AND_INDEX_OFFSET,
             memoryAlignment,
             metaFieldsPtr,
         );
@@ -241,7 +241,7 @@ function getPropNameThroughMeta(module: binaryen.Module) {
         module.local.set(
             propNameIndex,
             module.i32.load(
-                MetaFieldOffset.NAME_OFFSET,
+                MetaPropertyOffset.NAME_OFFSET,
                 memoryAlignment,
                 metaFieldsPtr,
             ),
@@ -3422,6 +3422,14 @@ function newExtRef(module: binaryen.Module) {
     return module.return(call);
 }
 
+function getInfcProperty(module: binaryen.Module) {
+    const objIdx = 0;
+    const objTypeIdIdx = 1;
+    const objImplIdIdx = 2;
+    const infcTypeIdIdx = 3;
+
+}
+
 export function callBuiltInAPIs(module: binaryen.Module) {
     /** Math.sqrt */
     module.addFunction(
@@ -3543,6 +3551,15 @@ export function callBuiltInAPIs(module: binaryen.Module) {
         getBuiltInFuncName(BuiltinNames.allocExtRefTableSlot),
         BuiltinNames.allocExtRefTableSlot,
     );
+    // module.addFunction(
+    //     getBuiltInFuncName(BuiltinNames.getInfcProperty),
+    //     binaryen.createType([
+    //         binaryen.anyref
+    //     ]),
+    //     binaryen.anyref,
+    //     [],
+    //     getInfcProperty(module),
+    // );
     /** string */
     if (getConfig().enableStringRef) {
         module.addFunction(
