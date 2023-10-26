@@ -1033,16 +1033,16 @@ get_prop_index_of_struct(wasm_exec_env_t exec_env, const char *prop,
     wasm_runtime_call_wasm(exec_env, func, argc, argv);
     if (argv[0] != -1) {
         property_flag = argv[0] & META_FLAG_MASK;
-        property_index = argv[0] & META_INDEX_MASK;
+        property_index = (argv[0] & META_INDEX_MASK) >> 4;
         if (property_flag == METHOD) {
             vtable_type = (wasm_struct_type_t)wasm_obj_get_defined_type(
                 vtable_value.gc_obj);
-            *field_type =
-                wasm_struct_type_get_field_type(vtable_type, argv[0], &is_mut);
+            *field_type = wasm_struct_type_get_field_type(
+                vtable_type, property_index, &is_mut);
         }
         else if (property_flag == FIELD) {
-            *field_type =
-                wasm_struct_type_get_field_type(struct_type, argv[0], &is_mut);
+            *field_type = wasm_struct_type_get_field_type(
+                struct_type, property_index, &is_mut);
         }
     }
 
