@@ -3427,7 +3427,6 @@ function getInfcProperty(module: binaryen.Module) {
     const objTypeIdIdx = 1;
     const objImplIdIdx = 2;
     const infcTypeIdIdx = 3;
-
 }
 
 export function callBuiltInAPIs(module: binaryen.Module) {

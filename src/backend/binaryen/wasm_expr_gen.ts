@@ -975,6 +975,8 @@ export class WASMExpressionGen {
         closureRef: binaryen.ExpressionRef,
         funcType: FunctionType,
         args?: SemanticsValue[],
+        objRef?: binaryen.ExpressionRef,
+        isObjFieldCall = false,
     ) {
         const closureVarTypeRef = binaryen.getExpressionType(closureRef);
         const closureTmpVar =
@@ -1002,7 +1004,15 @@ export class WASMExpressionGen {
             false,
         );
         this.wasmCompiler.currentFuncCtx!.insert(setClosureTmpVarRef);
-        return this.callFuncRef(funcType, funcRef, args, undefined, context);
+        return this.callFuncRef(
+            funcType,
+            funcRef,
+            args,
+            objRef,
+            context,
+            undefined,
+            isObjFieldCall,
+        );
     }
 
     private callBuiltinOrStaticMethod(
@@ -1886,8 +1896,9 @@ export class WASMExpressionGen {
         objRef?: binaryen.ExpressionRef,
         context?: binaryen.ExpressionRef,
         funcDecl?: FunctionDeclareNode,
+        isObjFieldCall = false,
     ) {
-        const funcTypeRef = this.wasmTypeGen.getWASMValueType(
+        const returnTypeRef = this.wasmTypeGen.getWASMValueType(
             (funcType as FunctionType).returnType,
         );
         if (!context) {
@@ -1896,7 +1907,10 @@ export class WASMExpressionGen {
                 emptyStructType.typeRef,
             );
         }
-        const envArgs: binaryen.ExpressionRef[] = [context];
+        const envArgs: binaryen.ExpressionRef[] = [];
+        if (!isObjFieldCall) {
+            envArgs.push(context);
+        }
         if (objRef) {
             envArgs.push(objRef);
         }
@@ -1912,7 +1926,7 @@ export class WASMExpressionGen {
             targetFunction,
             arrayToPtr(callArgsRefs).ptr,
             callArgsRefs.length,
-            funcTypeRef,
+            returnTypeRef,
             false,
         );
     }
@@ -2096,10 +2110,8 @@ export class WASMExpressionGen {
             memberNameRef,
             ItableFlag.UNKNOWN,
         );
-        /* get memberRef from thisRef */
-        let res: binaryen.ExpressionRef;
         if (typeMeta.isInterface) {
-            res = this.getInfcMember(
+            return this.getInfcMember(
                 typeMember,
                 ownerType,
                 thisRef,
@@ -2112,7 +2124,7 @@ export class WASMExpressionGen {
                 args,
             );
         } else {
-            res = this.getObjMember(
+            return this.getObjMember(
                 typeMember,
                 thisRef,
                 thisTypeRef,
@@ -2121,8 +2133,6 @@ export class WASMExpressionGen {
                 args,
             );
         }
-        /* If is call, call the memberRef, and get the result */
-        return res;
     }
     /**  access method, for example: obj.method, return a closure
      * TODO: because of the closure lacks of `this`, so now call the closure will not work
@@ -2235,11 +2245,9 @@ export class WASMExpressionGen {
         let ifEqualTrue: binaryen.ExpressionRef;
         if (propType.kind === ValueTypeKind.FUNCTION) {
             /* if property's value type is function, we should get it depend on property flag */
-            ifEqualTrue = this.getObjProperty(
-                castedObjRef,
-                valueIdx,
-                flagRef,
-                infcDescTypeRef,
+            // TODO: box to closure in getObjMethod or after getObjMethod
+            ifEqualTrue = this.getClosureOfMethod(
+                this.getObjMethod(castedObjRef, valueIdx, infcDescTypeRef),
                 propType as FunctionType,
             );
         } else {
@@ -2259,7 +2267,29 @@ export class WASMExpressionGen {
             member.isOptional,
             propTypeIdRef,
         );
-        return this.module.if(ifEqualTypeId, ifEqualTrue, ifEqualFalse);
+        /* get property from interface */
+        let res = this.module.if(ifEqualTypeId, ifEqualTrue, ifEqualFalse);
+
+        /* If isCall or member is an accessor, call the memberRef, and get the result */
+        if (
+            member.type === MemberType.ACCESSOR ||
+            (propType.kind === ValueTypeKind.FUNCTION && isCall)
+        ) {
+            /* if member is GETTER or member is a METHOD, then just callFuncRef, if member is a FIELD, need to callClosureInternal */
+            /* now their envParamLen is not equal, field is 1, others is 2 */
+            let isObjFieldCall = false;
+            if ((propType as FunctionType).envParamLen === 1) {
+                isObjFieldCall = true;
+            }
+            res = this.callClosureInternal(
+                res,
+                propType as FunctionType,
+                args,
+                thisRef,
+                isObjFieldCall,
+            );
+        }
+        return res;
 
         // // TODO: how to set isSet?
         // const isSet = false;
