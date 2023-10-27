@@ -90,3 +90,21 @@ export function obj_set_method() {
 }
 
 */
+
+export interface I1 {
+    [key: string]: any;
+}
+export type T1 = (params?: I1) => void;
+export interface I2 {
+    [key: string]: T1;
+}
+
+export function infc_obj_get_method2() {
+    const obj: I2 = {
+        a: (params?: I1) => {
+            console.log('hi');
+        },
+    };
+    const a = obj['a'];
+    a();
+}

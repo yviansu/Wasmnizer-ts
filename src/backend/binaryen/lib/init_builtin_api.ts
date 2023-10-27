@@ -3432,13 +3432,6 @@ function newExtRef(module: binaryen.Module) {
     return module.return(call);
 }
 
-function getInfcProperty(module: binaryen.Module) {
-    const objIdx = 0;
-    const objTypeIdIdx = 1;
-    const objImplIdIdx = 2;
-    const infcTypeIdIdx = 3;
-}
-
 export function callBuiltInAPIs(module: binaryen.Module) {
     /** Math.sqrt */
     module.addFunction(
@@ -3560,15 +3553,6 @@ export function callBuiltInAPIs(module: binaryen.Module) {
         getBuiltInFuncName(BuiltinNames.allocExtRefTableSlot),
         BuiltinNames.allocExtRefTableSlot,
     );
-    // module.addFunction(
-    //     getBuiltInFuncName(BuiltinNames.getInfcProperty),
-    //     binaryen.createType([
-    //         binaryen.anyref
-    //     ]),
-    //     binaryen.anyref,
-    //     [],
-    //     getInfcProperty(module),
-    // );
     /** string */
     if (getConfig().enableStringRef) {
         module.addFunction(

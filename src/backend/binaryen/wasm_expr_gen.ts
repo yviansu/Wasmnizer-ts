@@ -1080,16 +1080,6 @@ export class WASMExpressionGen {
                         );
                     }
                 }
-            } else {
-                // return this.getInfcMember(
-                //     member,
-                //     value.owner.type,
-                //     this.wasmExprGen(value.owner),
-                //     memberIdx,
-                //     true,
-                //     value.parameters,
-                // );
-                return binaryen.none;
             }
             isBuiltIn = false;
         }
@@ -2211,74 +2201,6 @@ export class WASMExpressionGen {
             );
         }
     }
-    /**  access method, for example: obj.method, return a closure
-     * TODO: because of the closure lacks of `this`, so now call the closure will not work
-     */
-    // private getInstMethod(
-    //     thisRef: binaryen.ExpressionRef,
-    //     ownerType: ObjectType,
-    //     meta: ObjectDescription,
-    //     member: MemberDescription,
-    // ) {
-    //     const thisTypeRef = this.wasmTypeGen.getWASMType(ownerType);
-    //     const valueIdx = this.getTruthIdx(meta, member);
-    //     const typeMember = meta.findMember(member.name) as MemberDescription;
-    //     const methodType = member.valueType as FunctionType;
-    //     const memberName = typeMember.name;
-
-    //     let res: binaryen.ExpressionRef;
-    //     if (meta.isInterface) {
-    //         const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, thisRef);
-    //         const memberNameRef = this.module.i32.const(
-    //             this.wasmCompiler.generateRawString(memberName),
-    //         );
-    //         const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
-    //             metaRef,
-    //             memberNameRef,
-    //             ItableFlag.UNKNOWN,
-    //         );
-    //         const indexRef = this.module.i32.and(
-    //             this.module.local.get(
-    //                 flagAndIndexTmpVar.index,
-    //                 flagAndIndexTmpVar.type,
-    //             ),
-    //             this.module.i32.const(-16),
-    //         );
-    //         const flagRef = this.module.i32.and(
-    //             this.module.local.get(
-    //                 flagAndIndexTmpVar.index,
-    //                 flagAndIndexTmpVar.type,
-    //             ),
-    //             this.module.i32.const(15),
-    //         );
-    //         let func = this.dynGetInfcProperty(
-    //             thisRef,
-    //             indexRef,
-    //             flagRef,
-    //             typeMember.valueType,
-    //             typeMember.isOptional,
-    //             this.getPropTypeFromObj(
-    //                 metaRef,
-    //                 memberNameRef,
-    //                 ItableFlag.UNKNOWN,
-    //             ),
-    //         );
-    //         res = func;
-    //         if (!typeMember.isOptional) {
-    //             const wasmFuncType = this.wasmTypeGen.getWASMType(methodType);
-    //             func = binaryenCAPI._BinaryenRefCast(
-    //                 this.module.ptr,
-    //                 func,
-    //                 wasmFuncType,
-    //             );
-    //             // res = this.getClosureOfMethod(func, methodType);
-    //         }
-    //     } else {
-    //         const func = this.getObjMethod(thisRef, valueIdx, thisTypeRef);
-    //         res = this.getClosureOfMethod(func, methodType);
-    //     }
-    //     return res;
-    // }
 
     private getInfcMember(
         member: MemberDescription,
@@ -2362,137 +2284,6 @@ export class WASMExpressionGen {
             );
         }
         return res;
-
-        // // TODO: how to set isSet?
-        // const isSet = false;
-
-        // if (isSet) {
-        //     ifTrue = this.setObjField(castedObjRef, valueIdx, targetValueRef!);
-        //     ifFalse = this.dynSetInfcProperty(
-        //         infcRef,
-        //         indexRef,
-        //         flagRef,
-        //         memberValueType,
-        //         optional,
-        //         this.getPropTypeFromObj(metaRef, memberNameRef, flag),
-        //         targetValueRef!,
-        //     );
-        // } else {
-        //     res = this.module.if(
-        //         ifIsField,
-        //         isFieldTrue,
-        //         this.module.if(
-        //             ifIsMethod,
-        //             isMethodTrue,
-        //             this.module.unreachable(),
-        //         ),
-        //     );
-
-        //     ifTrue = isCall
-        //         ? this.getObjMethod(castedObjRef, valueIdx, infcDescTypeRef)
-        //         : this.getObjField(castedObjRef, valueIdx, infcDescTypeRef);
-        //     ifFalse = this.dynGetInfcProperty(
-        //         infcRef,
-        //         indexRef,
-        //         flagRef,
-        //         memberValueType,
-        //         optional,
-        //         this.getPropTypeFromObj(metaRef, memberNameRef, flag),
-        //     );
-        // }
-
-        // /** class's method can't be optional, so if call optional method on interface, the method is undefined or non-optional,
-        //  * so the two's shapes must are not equal */
-        // if (callOptMethod) {
-        //     return ifFalse;
-        // }
-        // /** if optional, means the object maybe haven't the speciefied field, so we should
-        //  * check the found index whether equals to -1
-        //  */
-        // const dynUndefined = FunctionalFuncs.generateDynUndefined(this.module);
-        // let falseExpr = ifFalse;
-        // if (optional) {
-        //     falseExpr = module.if(
-        //         module.i32.eq(field_index, module.i32.const(-1)),
-        //         isSet ? module.unreachable() : dynUndefined,
-        //         ifFalse,
-        //     );
-        // }
-        /** for class, we are not support optional method, so it can't be undefined */
-        // const cond = module.if(
-        //     module.i32.or(
-        //         module.i32.eq(infcTypeId, objTypeId),
-        //         module.i32.eq(infcTypeId, objImplId),
-        //     ),
-        //     ifTrue,
-        //     falseExpr,
-        // );
-        // const resType = binaryen.getExpressionType(ifTrue);
-        // const res = module.block(null, [cond], resType);
-        // return res;
-
-        // const propRef = this.dynGetInfcProperty(
-        //     thisRef,
-        //     indexRef,
-        //     flagRef,
-        //     propValueType,
-        //     member.isOptional,
-        //     propTypeRef,
-        // );
-
-        // let res: binaryen.ExpressionRef;
-
-        // res = this.getOriObjInfoByFindIdx(
-        //     thisRef,
-        //     infcType,
-        //     member,
-        //     memberValueType,
-        //     memberIdx,
-        //     false,
-        //     member.type !== MemberType.FIELD,
-        // );
-        // /* is call method */
-        // if (
-        //     member.type === MemberType.ACCESSOR ||
-        //     (member.type === MemberType.METHOD && isCall)
-        // ) {
-        //     const memberFuncType = memberValueType as FunctionType;
-        //     /**
-        //      * TODO: Not support optional method in class, that means optional method in interface
-        //      * point to undefined or closure. Because of mixed type, so here we only allow
-        //      * if (i.x) {
-        //      *   i.x();
-        //      * }
-        //      * that means if i.x is undefined, then we will not call it.
-        //      */
-        //     if (member.isOptional) {
-        //         const wasmMethodType =
-        //             this.wasmTypeGen.getWASMValueType(memberFuncType);
-        //         const tableIndex = this.module.call(
-        //             dyntype.dyntype_to_extref,
-        //             [FunctionalFuncs.getDynContextRef(this.module), res],
-        //             dyntype.int,
-        //         );
-        //         const closure = binaryenCAPI._BinaryenRefCast(
-        //             this.module.ptr,
-        //             this.module.table.get(
-        //                 BuiltinNames.extrefTable,
-        //                 tableIndex,
-        //                 binaryen.anyref,
-        //             ),
-        //             wasmMethodType,
-        //         );
-        //         res = binaryenCAPI._BinaryenStructGet(
-        //             this.module.ptr,
-        //             1,
-        //             closure,
-        //             wasmMethodType,
-        //             false,
-        //         );
-        //     }
-        //     res = this.callFuncRef(memberFuncType, res, args, thisRef);
-        // }
-        // return res;
     }
 
     private getObjMember(
@@ -3716,17 +3507,7 @@ export class WASMExpressionGen {
                 const foundMember = this.getMemberByName(meta, propName);
                 const valueIdx = this.getTruthIdx(meta, foundMember);
 
-                if (meta.isInterface) {
-                    /* let i: I = xx; i.yy */
-                    const ownValueRef = this.wasmExprGen(owner);
-                    // return this.getInfcMember(
-                    //     foundMember,
-                    //     owner.type,
-                    //     ownValueRef,
-                    //     valueIdx,
-                    // );
-                    return binaryen.none;
-                } else if (meta.isObjectClass) {
+                if (meta.isObjectClass) {
                     /* class A; A.yy */
                     /* workaround: class get static field is a ShapeGetValue, this can be deleted later */
                     return this.getClassStaticField(
@@ -3914,12 +3695,6 @@ export class WASMExpressionGen {
                 false,
                 fieldTypeRef,
             );
-            // if (valueType.kind === ValueTypeKind.FUNCTION) {
-            //     elemOperation = this.getClosureOfMethod(
-            //         elemOperation,
-            //         valueType as FunctionType,
-            //     );
-            // }
         }
         return elemOperation;
     }
