@@ -1437,10 +1437,10 @@ export class WASMExpressionGen {
          * the original unspecialized type is stored in shape, and the specific specialized type is stored in type
          */
         const owner = value.owner as VarValue;
-        const meta = owner.shape!.meta!;
-        const member = meta.members[value.index];
+        const shapeMeta = owner.shape!.meta!;
+        const shapeMember = shapeMeta.members[value.index];
         const args = value.parameters;
-        let target = meta.name;
+        let target = shapeMeta.name;
         let isBuiltin = false;
 
         /* Workaround: should use meta.isBuiltin, but currently only class defined
@@ -1456,7 +1456,7 @@ export class WASMExpressionGen {
 
         if (isBuiltin) {
             return this.callBuiltinOrStaticMethod(
-                member,
+                shapeMember,
                 target,
                 value.parameters,
                 true,
@@ -1468,18 +1468,21 @@ export class WASMExpressionGen {
                 if (owner.ref instanceof ObjectType) {
                     return this.callClassStaticMethod(
                         owner.ref,
-                        member.name,
+                        shapeMember.name,
                         value.parameters,
                     );
                 } else {
                     const ownerType = owner.type as ObjectType;
                     const typeMeta = ownerType.meta;
+                    const typeMember = typeMeta.findMember(
+                        shapeMember.name,
+                    ) as MemberDescription;
                     const thisRef = this.wasmExprGen(owner);
                     return this.getInstMember(
                         thisRef,
                         ownerType,
                         typeMeta,
-                        member,
+                        typeMember,
                         true,
                         args,
                     );
@@ -1957,8 +1960,8 @@ export class WASMExpressionGen {
         rightValue?: SemanticsValue,
     ) {
         const owner = value.owner as VarValue;
-        const meta = owner.shape!.meta;
-        const member = meta.members[value.index];
+        const shapeMeta = owner.shape!.meta;
+        const shapeMember = shapeMeta.members[value.index];
         const ownerType = owner.type as ObjectType;
         let targetValue = value.value!;
         if (rightValue) {
@@ -1970,7 +1973,7 @@ export class WASMExpressionGen {
             targetValue,
             ownerType,
             typeMeta,
-            member,
+            shapeMember,
         );
     }
 
@@ -1978,31 +1981,64 @@ export class WASMExpressionGen {
         thisRef: binaryen.ExpressionRef,
         targetValue: SemanticsValue,
         ownerType: ObjectType,
-        meta: ObjectDescription,
-        member: MemberDescription,
+        typeMeta: ObjectDescription,
+        shapeMember: MemberDescription,
     ) {
         const thisTypeRef = this.wasmTypeGen.getWASMType(ownerType);
-        const valueIdx = this.getTruthIdx(meta, member, member.hasSetter);
-        if (meta.isInterface) {
-            return this.setInfcMemberWithSetter(
-                member,
+        const valueIdxInTypeMeta = this.getTruthIdx(
+            typeMeta,
+            shapeMember,
+            shapeMember.hasSetter,
+        );
+        const typeMember = typeMeta.findMember(
+            shapeMember.name,
+        ) as MemberDescription;
+        const metaRef = getWASMObjectMeta(this.module, thisRef);
+        const memberNameRef = this.getStringOffset(shapeMember.name);
+        const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
+            metaRef,
+            memberNameRef,
+            ItableFlag.UNKNOWN,
+        );
+        const indexRef = this.module.i32.shr_u(
+            this.module.local.get(
+                flagAndIndexTmpVar.index,
+                flagAndIndexTmpVar.type,
+            ),
+            this.module.i32.const(4),
+        );
+        const flagRef = this.module.i32.and(
+            this.module.local.get(
+                flagAndIndexTmpVar.index,
+                flagAndIndexTmpVar.type,
+            ),
+            this.module.i32.const(15),
+        );
+        const propTypeIdRef = this.getPropTypeFromObj(
+            metaRef,
+            memberNameRef,
+            ItableFlag.UNKNOWN,
+        );
+        if (typeMeta.isInterface) {
+            return this.setInfcMember(
+                shapeMember,
                 ownerType,
                 thisRef,
-                valueIdx,
+                valueIdxInTypeMeta,
                 targetValue,
             );
         } else {
-            return this.setObjMemberWithSetter(
-                member,
+            return this.setObjMember(
+                shapeMember,
                 thisRef,
                 thisTypeRef,
-                valueIdx,
+                valueIdxInTypeMeta,
                 targetValue,
             );
         }
     }
 
-    private setInfcMemberWithSetter(
+    private setInfcMember(
         member: MemberDescription,
         infcType: ValueType,
         thisRef: binaryen.ExpressionRef,
@@ -2039,7 +2075,7 @@ export class WASMExpressionGen {
         return res;
     }
 
-    private setObjMemberWithSetter(
+    private setObjMember(
         member: MemberDescription,
         thisRef: binaryen.ExpressionRef,
         thisTypeRef: binaryen.Type,
@@ -2068,17 +2104,14 @@ export class WASMExpressionGen {
         thisRef: binaryen.ExpressionRef,
         ownerType: ObjectType,
         typeMeta: ObjectDescription,
-        shapeMember: MemberDescription,
+        typeMember: MemberDescription,
         isCall = false,
         args?: SemanticsValue[],
     ) {
         const thisTypeRef = this.wasmTypeGen.getWASMType(ownerType);
-        const valueIdxInTypeMeta = this.getTruthIdx(typeMeta, shapeMember);
-        const typeMember = typeMeta.findMember(
-            shapeMember.name,
-        ) as MemberDescription;
+        const valueIdxInTypeMeta = this.getTruthIdx(typeMeta, typeMember);
         const metaRef = getWASMObjectMeta(this.module, thisRef);
-        const memberNameRef = this.getStringOffset(shapeMember.name);
+        const memberNameRef = this.getStringOffset(typeMember.name);
         const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
             metaRef,
             memberNameRef,
@@ -2777,15 +2810,15 @@ export class WASMExpressionGen {
     ) {
         /* Workaround: ShapeGetValue's field index now based on its origin shape, not objectType */
         const owner = value.owner;
-        const meta = owner.shape!.meta;
-        const member = meta.members[value.index];
+        const shapeMeta = owner.shape!.meta;
+        const shapeMember = shapeMeta.members[value.index];
         switch (owner.type.kind) {
             case ValueTypeKind.UNION:
             case ValueTypeKind.ANY: {
                 /* let o: A|null = new A; o'field type is real type, not any type */
                 const objRef = this.wasmExprGen(owner);
-                const propNameRef = this.getStringOffset(member.name);
-                const memberType = member.valueType;
+                const propNameRef = this.getStringOffset(shapeMember.name);
+                const memberType = shapeMember.valueType;
                 const anyObjProp = FunctionalFuncs.getDynObjProp(
                     this.module,
                     objRef,
@@ -2801,12 +2834,19 @@ export class WASMExpressionGen {
             case ValueTypeKind.OBJECT: {
                 const ownerType = owner.type as ObjectType;
                 const typeMeta = ownerType.meta;
+                const typeMember = typeMeta.findMember(
+                    shapeMember.name,
+                ) as MemberDescription;
                 if (
                     owner instanceof VarValue &&
                     owner.ref instanceof ObjectType
                 ) {
                     /* static field get */
-                    return this.getClassStaticField(member, meta, ownerType);
+                    return this.getClassStaticField(
+                        typeMember,
+                        typeMeta,
+                        ownerType,
+                    );
                 } else {
                     /* Workaround: ownerType's meta different from shape's meta */
                     const objRef = this.wasmExprGen(owner);
@@ -2814,23 +2854,23 @@ export class WASMExpressionGen {
                         objRef,
                         ownerType,
                         typeMeta,
-                        member,
+                        typeMember,
                     );
                 }
             }
             case ValueTypeKind.ARRAY: {
                 const objRef = this.wasmExprGen(owner);
-                if (member.name === 'length') {
+                if (shapeMember.name === 'length') {
                     return FunctionalFuncs.getArrayRefLen(this.module, objRef);
                 }
-                throw Error(`unhandle Array field get: ${member.name}`);
+                throw Error(`unhandle Array field get: ${shapeMember.name}`);
             }
             case ValueTypeKind.STRING: {
                 const objRef = this.wasmExprGen(owner);
-                if (member.name === 'length') {
+                if (shapeMember.name === 'length') {
                     return FunctionalFuncs.getStringRefLen(this.module, objRef);
                 }
-                throw Error(`unhandle String field get: ${member.name}`);
+                throw Error(`unhandle String field get: ${shapeMember.name}`);
             }
             default:
                 throw new UnimplementError('Unimplement wasmObjFieldGet');
