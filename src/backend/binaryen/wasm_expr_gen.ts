@@ -3164,16 +3164,21 @@ export class WASMExpressionGen {
                     type,
                     this.module.i32.const(PredefinedTypeId.CUSTOM_TYPE_BEGIN),
                 );
-                ifTrue = this.module.call(
-                    structdyn.StructDyn.struct_get_indirect_anyref,
-                    [ref, index],
-                    binaryen.anyref,
+                ifTrue = this.module.if(
+                    FunctionalFuncs.isUndefinedIndex(this.module, index),
+                    FunctionalFuncs.generateDynUndefined(this.module),
+                    FunctionalFuncs.boxNonLiteralToAny(
+                        this.module,
+                        this.module.call(
+                            structdyn.StructDyn.struct_get_indirect_anyref,
+                            [ref, index],
+                            binaryen.anyref,
+                        ),
+                        kind,
+                    ),
                 );
-                ifTrue = FunctionalFuncs.boxNonLiteralToAny(
-                    this.module,
-                    ifTrue,
-                    kind,
-                );
+                // ifTrue = ;
+                // ifTrue = ;
                 break;
             }
             default: {

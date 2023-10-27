@@ -1722,6 +1722,13 @@ export namespace FunctionalFuncs {
         );
     }
 
+    export function isUndefinedIndex(
+        module: binaryen.Module,
+        indexRef: binaryen.ExpressionRef,
+    ) {
+        return module.i32.eq(indexRef, module.i32.const(268435455));
+    }
+
     export function isUndefinedFlag(
         module: binaryen.Module,
         flagRef: binaryen.ExpressionRef,
