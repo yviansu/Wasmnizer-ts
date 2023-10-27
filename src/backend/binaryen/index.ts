@@ -335,7 +335,6 @@ export class WASMGen extends Ts2wasmBackend {
            This is just a simple workaround, we need to find out the root cause
         */
         const textModule = this._binaryenModule.emitText();
-        console.log(textModule);
         this._binaryenModule.dispose();
 
         try {

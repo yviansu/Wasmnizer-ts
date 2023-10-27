@@ -976,7 +976,6 @@ export class WASMExpressionGen {
         funcType: FunctionType,
         args?: SemanticsValue[],
         objRef?: binaryen.ExpressionRef,
-        isObjFieldCall = false,
     ) {
         const closureVarTypeRef = binaryen.getExpressionType(closureRef);
         const closureTmpVar =
@@ -1004,15 +1003,7 @@ export class WASMExpressionGen {
             false,
         );
         this.wasmCompiler.currentFuncCtx!.insert(setClosureTmpVarRef);
-        return this.callFuncRef(
-            funcType,
-            funcRef,
-            args,
-            objRef,
-            context,
-            undefined,
-            isObjFieldCall,
-        );
+        return this.callFuncRef(funcType, funcRef, args, objRef, context);
     }
 
     private callBuiltinOrStaticMethod(
@@ -1890,16 +1881,15 @@ export class WASMExpressionGen {
     }
 
     private callFuncRef(
-        funcType: ValueType,
+        funcType: FunctionType,
         targetFunction: binaryen.ExpressionRef,
         args?: SemanticsValue[],
         objRef?: binaryen.ExpressionRef,
         context?: binaryen.ExpressionRef,
         funcDecl?: FunctionDeclareNode,
-        isObjFieldCall = false,
     ) {
         const returnTypeRef = this.wasmTypeGen.getWASMValueType(
-            (funcType as FunctionType).returnType,
+            funcType.returnType,
         );
         if (!context) {
             context = binaryenCAPI._BinaryenRefNull(
@@ -1907,15 +1897,18 @@ export class WASMExpressionGen {
                 emptyStructType.typeRef,
             );
         }
-        const envArgs: binaryen.ExpressionRef[] = [];
-        if (!isObjFieldCall) {
-            envArgs.push(context);
-        }
-        if (objRef) {
-            envArgs.push(objRef);
+        const envArgs: binaryen.ExpressionRef[] = [context];
+        if (funcType.envParamLen === 2) {
+            if (objRef) {
+                envArgs.push(objRef);
+            } else {
+                throw new Error(
+                    'class method calling must provide $this reference',
+                );
+            }
         }
         const callArgsRefs = this.parseArguments(
-            funcType as FunctionType,
+            funcType,
             envArgs,
             args,
             funcDecl,
@@ -1972,7 +1965,7 @@ export class WASMExpressionGen {
             targetValue = rightValue;
         }
         const typeMeta = ownerType.meta;
-        return this.setInstField(
+        return this.setInstMember(
             this.wasmExprGen(owner),
             targetValue,
             ownerType,
@@ -1981,7 +1974,7 @@ export class WASMExpressionGen {
         );
     }
 
-    private setInstField(
+    private setInstMember(
         thisRef: binaryen.ExpressionRef,
         targetValue: SemanticsValue,
         ownerType: ObjectType,
@@ -1991,7 +1984,7 @@ export class WASMExpressionGen {
         const thisTypeRef = this.wasmTypeGen.getWASMType(ownerType);
         const valueIdx = this.getTruthIdx(meta, member, member.hasSetter);
         if (meta.isInterface) {
-            return this.setInfcFieldWithSetter(
+            return this.setInfcMemberWithSetter(
                 member,
                 ownerType,
                 thisRef,
@@ -1999,7 +1992,7 @@ export class WASMExpressionGen {
                 targetValue,
             );
         } else {
-            return this.setObjFieldWithSetter(
+            return this.setObjMemberWithSetter(
                 member,
                 thisRef,
                 thisTypeRef,
@@ -2009,7 +2002,7 @@ export class WASMExpressionGen {
         }
     }
 
-    private setInfcFieldWithSetter(
+    private setInfcMemberWithSetter(
         member: MemberDescription,
         infcType: ValueType,
         thisRef: binaryen.ExpressionRef,
@@ -2037,7 +2030,7 @@ export class WASMExpressionGen {
         );
         if (member.hasSetter) {
             res = this.callFuncRef(
-                memberValueType,
+                memberValueType as FunctionType,
                 res,
                 [targetValue],
                 thisRef,
@@ -2046,7 +2039,7 @@ export class WASMExpressionGen {
         return res;
     }
 
-    private setObjFieldWithSetter(
+    private setObjMemberWithSetter(
         member: MemberDescription,
         thisRef: binaryen.ExpressionRef,
         thisTypeRef: binaryen.Type,
@@ -2062,7 +2055,7 @@ export class WASMExpressionGen {
             const setterType = (member.setter as VarValue).type;
             targetFuncRef = this.getObjMethod(thisRef, fieldIdx, thisTypeRef);
             res = this.callFuncRef(
-                setterType,
+                setterType as FunctionType,
                 targetFuncRef,
                 [targetValue],
                 thisRef,
@@ -2277,16 +2270,11 @@ export class WASMExpressionGen {
         ) {
             /* if member is GETTER or member is a METHOD, then just callFuncRef, if member is a FIELD, need to callClosureInternal */
             /* now their envParamLen is not equal, field is 1, others is 2 */
-            let isObjFieldCall = false;
-            if ((propType as FunctionType).envParamLen === 1) {
-                isObjFieldCall = true;
-            }
             res = this.callClosureInternal(
                 res,
                 propType as FunctionType,
                 args,
                 thisRef,
-                isObjFieldCall,
             );
         }
         return res;
@@ -2449,7 +2437,12 @@ export class WASMExpressionGen {
             }
             if (member.type === MemberType.ACCESSOR) {
                 const accessorFuncType = (member.getter! as VarValue).type;
-                res = this.callFuncRef(accessorFuncType, res, args, thisRef);
+                res = this.callFuncRef(
+                    accessorFuncType as FunctionType,
+                    res,
+                    args,
+                    thisRef,
+                );
             }
         }
         return res;
@@ -3795,7 +3788,7 @@ export class WASMExpressionGen {
                 const objType = ownVarDecl.type as ObjectType;
                 const meta = objType.meta;
                 const foundMember = this.getMemberByName(meta, value.name);
-                return this.setInstField(
+                return this.setInstMember(
                     ownValueRef,
                     oriValue,
                     objType,
@@ -3893,6 +3886,11 @@ export class WASMExpressionGen {
             ),
             this.module.i32.const(15),
         );
+        const fieldTypeRef = this.getPropTypeFromObj(
+            metaRef,
+            propertyOffset,
+            flag,
+        );
         let elemOperation: binaryen.ExpressionRef;
         if (value.kind === SemanticsValueKind.OBJECT_KEY_SET) {
             elemOperation = this.dynSetInfcProperty(
@@ -3901,7 +3899,7 @@ export class WASMExpressionGen {
                 flagRef,
                 valueType,
                 false,
-                this.getPropTypeFromObj(metaRef, propertyOffset, flag),
+                fieldTypeRef,
                 this.wasmExprGen((value as ElementSetValue).value!),
             );
         } else {
@@ -3911,14 +3909,14 @@ export class WASMExpressionGen {
                 flagRef,
                 valueType,
                 false,
-                this.getPropTypeFromObj(metaRef, propertyOffset, flag),
+                fieldTypeRef,
             );
-            if (valueType.kind === ValueTypeKind.FUNCTION) {
-                elemOperation = this.getClosureOfMethod(
-                    elemOperation,
-                    valueType as FunctionType,
-                );
-            }
+            // if (valueType.kind === ValueTypeKind.FUNCTION) {
+            //     elemOperation = this.getClosureOfMethod(
+            //         elemOperation,
+            //         valueType as FunctionType,
+            //     );
+            // }
         }
         return elemOperation;
     }
