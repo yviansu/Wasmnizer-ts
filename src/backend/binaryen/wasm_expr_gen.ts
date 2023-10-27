@@ -2331,8 +2331,8 @@ export class WASMExpressionGen {
         );
         let ifEqualTrue: binaryen.ExpressionRef;
         if (propType.kind === ValueTypeKind.FUNCTION) {
-            /* if property's value type is function, we should get it depend on property flag */
-            // TODO: box to closure in getObjMethod or after getObjMethod
+            /* if property's value type is function, and typeid is equal, then we can get property from vtable */
+            /* methodRef get from vtable is a funcref, we need to box it to closure */
             ifEqualTrue = this.getClosureOfMethod(
                 this.getObjMethod(castedObjRef, valueIdx, infcDescTypeRef),
                 propType as FunctionType,
@@ -2364,6 +2364,14 @@ export class WASMExpressionGen {
         ) {
             /* if member is GETTER or member is a METHOD, then just callFuncRef, if member is a FIELD, need to callClosureInternal */
             /* now their envParamLen is not equal, field is 1, others is 2 */
+            if (member.isOptional) {
+                /* if member is optional, need to do unbox */
+                res = FunctionalFuncs.unboxAnyToExtref(
+                    this.module,
+                    res,
+                    this.wasmTypeGen.getWASMValueType(propType as FunctionType),
+                );
+            }
             res = this.callClosureInternal(
                 res,
                 propType as FunctionType,
@@ -2947,23 +2955,20 @@ export class WASMExpressionGen {
         indexRef: binaryen.ExpressionRef,
         flagRef: binaryen.ExpressionRef,
         valueType: ValueType,
-        optional: boolean,
-        propertyTypeRef: binaryen.ExpressionRef,
+        isOptional: boolean,
+        propTypeIdRef: binaryen.ExpressionRef,
     ) {
         const wasmType = this.wasmTypeGen.getWASMType(valueType);
         const typeKind = valueType.kind;
         let res: binaryen.ExpressionRef | null = null;
 
-        if (
-            valueType instanceof UnionType ||
-            (valueType instanceof FunctionType && optional)
-        ) {
+        if (valueType instanceof UnionType) {
             return this.dynGetInfcUnionProperty(
                 objRef,
                 indexRef,
                 valueType,
-                propertyTypeRef,
-                optional,
+                propTypeIdRef,
+                isOptional,
             );
         }
         if (typeKind === ValueTypeKind.BOOLEAN) {
@@ -3019,6 +3024,18 @@ export class WASMExpressionGen {
                     this.module.unreachable(),
                 ),
             );
+            if (isOptional) {
+                /* if function is optional, then result need to box to any */
+                res = this.module.if(
+                    FunctionalFuncs.isUndefinedFlag(this.module, flagRef),
+                    FunctionalFuncs.generateDynUndefined(this.module),
+                    FunctionalFuncs.boxNonLiteralToAny(
+                        this.module,
+                        res,
+                        typeKind,
+                    ),
+                );
+            }
         } else if (wasmType === binaryen.i64) {
             res = this.module.call(
                 structdyn.StructDyn.struct_get_indirect_i64,
@@ -3053,7 +3070,7 @@ export class WASMExpressionGen {
     private dynGetInfcUnionProperty(
         ref: binaryen.ExpressionRef,
         index: binaryen.ExpressionRef,
-        type: UnionType | FunctionType,
+        type: UnionType,
         indexType: binaryen.ExpressionRef,
         optional: boolean,
     ) {

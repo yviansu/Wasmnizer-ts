@@ -1715,6 +1715,13 @@ export namespace FunctionalFuncs {
         );
     }
 
+    export function isUndefinedFlag(
+        module: binaryen.Module,
+        flagRef: binaryen.ExpressionRef,
+    ) {
+        return module.i32.eq(flagRef, module.i32.const(15));
+    }
+
     export function isFieldFlag(
         module: binaryen.Module,
         flagRef: binaryen.ExpressionRef,
