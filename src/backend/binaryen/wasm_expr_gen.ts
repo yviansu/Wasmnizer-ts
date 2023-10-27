@@ -19,13 +19,9 @@ import { Logger } from '../../log.js';
 import {
     UtilFuncs,
     FunctionalFuncs,
-    getCString,
     ItableFlag,
-    utf16ToUtf8,
     FlattenLoop,
-    getFieldFromMetaByOffset,
     MetaDataOffset,
-    getWASMObjectMeta,
 } from './utils.js';
 import {
     PredefinedTypeId,
@@ -340,7 +336,7 @@ export class WASMExpressionGen {
             str = str.substring(1, str.length - 1);
         }
         const ptr = this.wasmCompiler.generateRawString(str);
-        const len = utf16ToUtf8(str).length;
+        const len = UtilFuncs.utf16ToUtf8(str).length;
         return FunctionalFuncs.generateStringForStringref(
             this.module,
             this.module.i32.const(ptr),
@@ -1968,12 +1964,15 @@ export class WASMExpressionGen {
             targetValue = rightValue;
         }
         const typeMeta = ownerType.meta;
+        const typeMember = typeMeta.findMember(
+            shapeMember.name,
+        ) as MemberDescription;
         return this.setInstMember(
             this.wasmExprGen(owner),
             targetValue,
             ownerType,
             typeMeta,
-            shapeMember,
+            typeMember,
         );
     }
 
@@ -1982,23 +1981,24 @@ export class WASMExpressionGen {
         targetValue: SemanticsValue,
         ownerType: ObjectType,
         typeMeta: ObjectDescription,
-        shapeMember: MemberDescription,
+        typeMember: MemberDescription,
     ) {
         const thisTypeRef = this.wasmTypeGen.getWASMType(ownerType);
         const valueIdxInTypeMeta = this.getTruthIdx(
             typeMeta,
-            shapeMember,
-            shapeMember.hasSetter,
+            typeMember,
+            typeMember.hasSetter,
         );
-        const typeMember = typeMeta.findMember(
-            shapeMember.name,
-        ) as MemberDescription;
-        const metaRef = getWASMObjectMeta(this.module, thisRef);
-        const memberNameRef = this.getStringOffset(shapeMember.name);
+        const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, thisRef);
+        const memberNameRef = this.getStringOffset(typeMember.name);
+        let flag = ItableFlag.UNKNOWN;
+        if (typeMember.hasSetter) {
+            flag = ItableFlag.SETTER;
+        }
         const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
             metaRef,
             memberNameRef,
-            ItableFlag.UNKNOWN,
+            flag,
         );
         const indexRef = this.module.i32.shr_u(
             this.module.local.get(
@@ -2021,15 +2021,19 @@ export class WASMExpressionGen {
         );
         if (typeMeta.isInterface) {
             return this.setInfcMember(
-                shapeMember,
+                typeMember,
                 ownerType,
                 thisRef,
                 valueIdxInTypeMeta,
                 targetValue,
+                metaRef,
+                indexRef,
+                flagRef,
+                propTypeIdRef,
             );
         } else {
             return this.setObjMember(
-                shapeMember,
+                typeMember,
                 thisRef,
                 thisTypeRef,
                 valueIdxInTypeMeta,
@@ -2044,7 +2048,16 @@ export class WASMExpressionGen {
         thisRef: binaryen.ExpressionRef,
         fieldIdx: number,
         targetValue: SemanticsValue,
+        metaRef: binaryen.ExpressionRef,
+        indexRef: binaryen.ExpressionRef,
+        flagRef: binaryen.ExpressionRef,
+        propTypeIdRef: binaryen.ExpressionRef,
     ) {
+        const propType = member.hasSetter
+            ? (member.setter as VarValue).type
+            : member.valueType;
+        const isCall = member.hasSetter ? true : false;
+
         let res: binaryen.ExpressionRef;
         const isSet = member.hasSetter ? false : true;
         const callMethod = member.hasSetter ? true : false;
@@ -2110,7 +2123,7 @@ export class WASMExpressionGen {
     ) {
         const thisTypeRef = this.wasmTypeGen.getWASMType(ownerType);
         const valueIdxInTypeMeta = this.getTruthIdx(typeMeta, typeMember);
-        const metaRef = getWASMObjectMeta(this.module, thisRef);
+        const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, thisRef);
         const memberNameRef = this.getStringOffset(typeMember.name);
         const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
             metaRef,
@@ -2177,7 +2190,7 @@ export class WASMExpressionGen {
 
     //     let res: binaryen.ExpressionRef;
     //     if (meta.isInterface) {
-    //         const metaRef = getWASMObjectMeta(this.module, thisRef);
+    //         const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, thisRef);
     //         const memberNameRef = this.module.i32.const(
     //             this.wasmCompiler.generateRawString(memberName),
     //         );
@@ -2254,12 +2267,12 @@ export class WASMExpressionGen {
         );
         /* judge if type_id is equal or impl_id is equal */
         const infcTypeIdRef = this.module.i32.const(infcType.typeId);
-        const objTypeIdRef = getFieldFromMetaByOffset(
+        const objTypeIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
             this.module,
             metaRef,
             MetaDataOffset.TYPE_ID_OFFSET,
         );
-        const objImplIdRef = getFieldFromMetaByOffset(
+        const objImplIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
             this.module,
             metaRef,
             MetaDataOffset.IMPL_ID_OFFSET,
@@ -2622,8 +2635,8 @@ export class WASMExpressionGen {
     }
 
     private infcCastToObj(ref: binaryen.ExpressionRef, toType: ObjectType) {
-        const meta = getWASMObjectMeta(this.module, ref);
-        const typeIdRef = getFieldFromMetaByOffset(
+        const meta = FunctionalFuncs.getWASMObjectMeta(this.module, ref);
+        const typeIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
             this.module,
             meta,
             MetaDataOffset.TYPE_ID_OFFSET,
@@ -2687,13 +2700,13 @@ export class WASMExpressionGen {
         const infcDescTypeRef = this.wasmTypeGen.getWASMObjOriType(infcType);
         const infcTypeIdRef = this.module.i32.const(infcType.typeId);
 
-        const metaRef = getWASMObjectMeta(this.module, infcRef);
-        const typeIdRef = getFieldFromMetaByOffset(
+        const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, infcRef);
+        const typeIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
             this.module,
             metaRef,
             MetaDataOffset.TYPE_ID_OFFSET,
         );
-        const implIdRef = getFieldFromMetaByOffset(
+        const implIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
             this.module,
             metaRef,
             MetaDataOffset.IMPL_ID_OFFSET,
@@ -2790,7 +2803,7 @@ export class WASMExpressionGen {
             const name = meta.name + '|static_fields';
             const staticFields = binaryenCAPI._BinaryenGlobalGet(
                 this.module.ptr,
-                getCString(name),
+                UtilFuncs.getCString(name),
                 staticFieldsTypeRef,
             );
             return binaryenCAPI._BinaryenStructGet(
@@ -3905,7 +3918,10 @@ export class WASMExpressionGen {
         const propertyOffset = this.encodeStringrefToLinearMemory(indexStrRef);
 
         /* invoke get_indirect/set_indirect to set prop value to obj */
-        const metaRef = getWASMObjectMeta(this.module, ownerRef);
+        const metaRef = FunctionalFuncs.getWASMObjectMeta(
+            this.module,
+            ownerRef,
+        );
         const flag = ItableFlag.UNKNOWN;
         const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
             metaRef,

@@ -87,6 +87,37 @@ export enum ItableFlag {
     UNKNOWN,
 }
 
+export const enum StructFieldIndex {
+    VTABLE_INDEX = 0,
+}
+
+export const enum VtableFieldIndex {
+    META_INDEX = 0,
+}
+
+export const SIZE_OF_META_FIELD = 12;
+
+export const enum MetaDataOffset {
+    TYPE_ID_OFFSET = 0,
+    IMPL_ID_OFFSET = 4,
+    COUNT_OFFSET = 8,
+    FIELDS_PTR_OFFSET = 12,
+}
+
+export const enum MetaPropertyOffset {
+    NAME_OFFSET = 0,
+    FLAG_AND_INDEX_OFFSET = 4,
+    TYPE_OFFSET = 8,
+}
+
+export interface SourceMapLoc {
+    location: SourceLocation;
+    ref: binaryen.ExpressionRef;
+}
+
+export const META_FLAG_MASK = 0x0000000f;
+export const META_INDEX_MASK = 0xfffffff0;
+
 export namespace UtilFuncs {
     export function getFuncName(
         moduleName: string,
@@ -130,6 +161,53 @@ export namespace UtilFuncs {
                 return false;
         }
     }
+
+    export const wasmStringMap = new Map<string, number>();
+
+    export function getCString(str: string) {
+        if (wasmStringMap.has(str)) {
+            return wasmStringMap.get(str) as number;
+        }
+        const wasmStr = binaryenCAPI._malloc(str.length + 1);
+        let index = wasmStr;
+        // consider UTF-8 only
+        for (let i = 0; i < str.length; i++) {
+            binaryenCAPI.__i32_store8(index++, str.codePointAt(i) as number);
+        }
+        binaryenCAPI.__i32_store8(index, 0);
+        wasmStringMap.set(str, wasmStr);
+        return wasmStr;
+    }
+
+    export function clearWasmStringMap() {
+        wasmStringMap.clear();
+    }
+
+    export function utf16ToUtf8(utf16String: string): string {
+        let utf8String = '';
+
+        for (let i = 0; i < utf16String.length; i++) {
+            const charCode = utf16String.charCodeAt(i);
+            if (charCode <= 0x7f) {
+                utf8String += String.fromCharCode(charCode);
+            } else if (charCode <= 0x7ff) {
+                utf8String += String.fromCharCode(
+                    0xc0 | ((charCode >> 6) & 0x1f),
+                );
+                utf8String += String.fromCharCode(0x80 | (charCode & 0x3f));
+            } else {
+                utf8String += String.fromCharCode(
+                    0xe0 | ((charCode >> 12) & 0x0f),
+                );
+                utf8String += String.fromCharCode(
+                    0x80 | ((charCode >> 6) & 0x3f),
+                );
+                utf8String += String.fromCharCode(0x80 | (charCode & 0x3f));
+            }
+        }
+
+        return utf8String;
+    }
 }
 
 export namespace FunctionalFuncs {
@@ -148,7 +226,7 @@ export namespace FunctionalFuncs {
                 so we use C-API instead */
             dyntypeContextRef = binaryenCAPI._BinaryenGlobalGet(
                 module.ptr,
-                getCString(dyntype.dyntype_context),
+                UtilFuncs.getCString(dyntype.dyntype_context),
                 dyntype.dyn_ctx_t,
             );
         }
@@ -1589,6 +1667,54 @@ export namespace FunctionalFuncs {
         );
     }
 
+    export function getFieldFromMetaByOffset(
+        module: binaryen.Module,
+        meta: binaryen.ExpressionRef,
+        offset: number,
+    ) {
+        return module.i32.load(offset, memoryAlignment, meta);
+    }
+
+    export function getWasmStructFieldByIndex(
+        module: binaryen.Module,
+        ref: binaryen.ExpressionRef,
+        typeRef: binaryen.Type,
+        idx: number,
+    ) {
+        return binaryenCAPI._BinaryenStructGet(
+            module.ptr,
+            idx,
+            ref,
+            typeRef,
+            false,
+        );
+    }
+
+    export function getWASMObjectVtable(
+        module: binaryen.Module,
+        ref: binaryen.ExpressionRef,
+    ) {
+        return getWasmStructFieldByIndex(
+            module,
+            ref,
+            baseVtableType.typeRef,
+            StructFieldIndex.VTABLE_INDEX,
+        );
+    }
+
+    export function getWASMObjectMeta(
+        module: binaryen.Module,
+        ref: binaryen.ExpressionRef,
+    ) {
+        const vtable = getWASMObjectVtable(module, ref);
+        return getWasmStructFieldByIndex(
+            module,
+            vtable,
+            binaryen.i32,
+            VtableFieldIndex.META_INDEX,
+        );
+    }
+
     export function isFieldFlag(
         module: binaryen.Module,
         flagRef: binaryen.ExpressionRef,
@@ -1602,123 +1728,28 @@ export namespace FunctionalFuncs {
     ) {
         return module.i32.eq(flagRef, module.i32.const(ItableFlag.METHOD));
     }
-}
 
-export const wasmStringMap = new Map<string, number>();
-export function getCString(str: string) {
-    if (wasmStringMap.has(str)) {
-        return wasmStringMap.get(str) as number;
+    export function isTypeIdEqual(
+        module: binaryen.Module,
+        typeId: number,
+        metaRef: binaryen.ExpressionRef,
+    ) {
+        /* judge if type_id is equal or impl_id is equal */
+        const infcTypeIdRef = module.i32.const(typeId);
+        const objTypeIdRef = getFieldFromMetaByOffset(
+            module,
+            metaRef,
+            MetaDataOffset.TYPE_ID_OFFSET,
+        );
+        const objImplIdRef = getFieldFromMetaByOffset(
+            module,
+            metaRef,
+            MetaDataOffset.IMPL_ID_OFFSET,
+        );
+        const ifEqualTypeId = module.i32.or(
+            module.i32.eq(infcTypeIdRef, objTypeIdRef),
+            module.i32.eq(infcTypeIdRef, objImplIdRef),
+        );
+        return ifEqualTypeId;
     }
-    const wasmStr = binaryenCAPI._malloc(str.length + 1);
-    let index = wasmStr;
-    // consider UTF-8 only
-    for (let i = 0; i < str.length; i++) {
-        binaryenCAPI.__i32_store8(index++, str.codePointAt(i) as number);
-    }
-    binaryenCAPI.__i32_store8(index, 0);
-    wasmStringMap.set(str, wasmStr);
-    return wasmStr;
 }
-
-export function utf16ToUtf8(utf16String: string): string {
-    let utf8String = '';
-
-    for (let i = 0; i < utf16String.length; i++) {
-        const charCode = utf16String.charCodeAt(i);
-        if (charCode <= 0x7f) {
-            utf8String += String.fromCharCode(charCode);
-        } else if (charCode <= 0x7ff) {
-            utf8String += String.fromCharCode(0xc0 | ((charCode >> 6) & 0x1f));
-            utf8String += String.fromCharCode(0x80 | (charCode & 0x3f));
-        } else {
-            utf8String += String.fromCharCode(0xe0 | ((charCode >> 12) & 0x0f));
-            utf8String += String.fromCharCode(0x80 | ((charCode >> 6) & 0x3f));
-            utf8String += String.fromCharCode(0x80 | (charCode & 0x3f));
-        }
-    }
-
-    return utf8String;
-}
-
-export function clearWasmStringMap() {
-    wasmStringMap.clear();
-}
-
-export const enum StructFieldIndex {
-    VTABLE_INDEX = 0,
-}
-
-export const enum VtableFieldIndex {
-    META_INDEX = 0,
-}
-
-export const SIZE_OF_META_FIELD = 12;
-
-export const enum MetaDataOffset {
-    TYPE_ID_OFFSET = 0,
-    IMPL_ID_OFFSET = 4,
-    COUNT_OFFSET = 8,
-    FIELDS_PTR_OFFSET = 12,
-}
-
-export const enum MetaPropertyOffset {
-    NAME_OFFSET = 0,
-    FLAG_AND_INDEX_OFFSET = 4,
-    TYPE_OFFSET = 8,
-}
-
-export function getFieldFromMetaByOffset(
-    module: binaryen.Module,
-    meta: binaryen.ExpressionRef,
-    offset: number,
-) {
-    return module.i32.load(offset, memoryAlignment, meta);
-}
-
-export function getWasmStructFieldByIndex(
-    module: binaryen.Module,
-    ref: binaryen.ExpressionRef,
-    typeRef: binaryen.Type,
-    idx: number,
-) {
-    return binaryenCAPI._BinaryenStructGet(
-        module.ptr,
-        idx,
-        ref,
-        typeRef,
-        false,
-    );
-}
-
-export function getWASMObjectVtable(
-    module: binaryen.Module,
-    ref: binaryen.ExpressionRef,
-) {
-    return getWasmStructFieldByIndex(
-        module,
-        ref,
-        baseVtableType.typeRef,
-        StructFieldIndex.VTABLE_INDEX,
-    );
-}
-
-export function getWASMObjectMeta(
-    module: binaryen.Module,
-    ref: binaryen.ExpressionRef,
-) {
-    const vtable = getWASMObjectVtable(module, ref);
-    return getWasmStructFieldByIndex(
-        module,
-        vtable,
-        binaryen.i32,
-        VtableFieldIndex.META_INDEX,
-    );
-}
-
-export interface SourceMapLoc {
-    location: SourceLocation;
-    ref: binaryen.ExpressionRef;
-}
-
-export const META_FLAG_MASK = 0x0000000f;
-export const META_INDEX_MASK = 0xfffffff0;
