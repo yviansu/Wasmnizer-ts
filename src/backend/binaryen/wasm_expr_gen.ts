@@ -2032,24 +2032,15 @@ export class WASMExpressionGen {
             if (typeMember.hasSetter) {
                 flag = ItableFlag.SETTER;
             }
-            const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
+            const indexRef = this.getPropIndexFromObj(
                 metaRef,
                 memberNameRef,
                 flag,
             );
-            const indexRef = this.module.i32.shr_u(
-                this.module.local.get(
-                    flagAndIndexTmpVar.index,
-                    flagAndIndexTmpVar.type,
-                ),
-                this.module.i32.const(4),
-            );
-            const flagRef = this.module.i32.and(
-                this.module.local.get(
-                    flagAndIndexTmpVar.index,
-                    flagAndIndexTmpVar.type,
-                ),
-                this.module.i32.const(15),
+            const flagRef = this.getPropFlagFromObj(
+                metaRef,
+                memberNameRef,
+                flag,
             );
             const propTypeIdRef = this.getPropTypeFromObj(
                 metaRef,
@@ -2179,24 +2170,15 @@ export class WASMExpressionGen {
         );
         const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, thisRef);
         const memberNameRef = this.getStringOffset(typeMember.name);
-        const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
+        const indexRef = this.getPropIndexFromObj(
             metaRef,
             memberNameRef,
             ItableFlag.UNKNOWN,
         );
-        const indexRef = this.module.i32.shr_u(
-            this.module.local.get(
-                flagAndIndexTmpVar.index,
-                flagAndIndexTmpVar.type,
-            ),
-            this.module.i32.const(4),
-        );
-        const flagRef = this.module.i32.and(
-            this.module.local.get(
-                flagAndIndexTmpVar.index,
-                flagAndIndexTmpVar.type,
-            ),
-            this.module.i32.const(15),
+        const flagRef = this.getPropFlagFromObj(
+            metaRef,
+            memberNameRef,
+            ItableFlag.UNKNOWN,
         );
         const propTypeIdRef = this.getPropTypeFromObj(
             metaRef,
@@ -2554,26 +2536,38 @@ export class WASMExpressionGen {
         return res;
     }
 
-    private getPropFlagAndIndexVarFromObj(
+    private getPropFlagFromObj(
         meta: binaryen.ExpressionRef,
         name: binaryen.ExpressionRef,
         flag: ItableFlag,
     ) {
-        const flagAndIndexTmpVar =
-            this.wasmCompiler.currentFuncCtx!.insertTmpVar(binaryen.i32);
-        this.wasmCompiler.currentFuncCtx!.insert(
-            this.module.local.set(
-                flagAndIndexTmpVar.index,
-                this.module.call(
-                    BuiltinNames.findPropertyFlagAndIndex,
-                    [meta, name, this.module.i32.const(flag)],
-                    binaryen.i32,
-                ),
-            ),
+        const flagAndIndexRef = this.module.call(
+            BuiltinNames.findPropertyFlagAndIndex,
+            [meta, name, this.module.i32.const(flag)],
+            binaryen.i32,
         );
-        return flagAndIndexTmpVar;
-        // const index = this.module.i32.and(flagAndIndex, this.module.i32.const(-16));
-        // return index;
+        const flagRef = this.module.i32.and(
+            flagAndIndexRef,
+            this.module.i32.const(15),
+        );
+        return flagRef;
+    }
+
+    private getPropIndexFromObj(
+        meta: binaryen.ExpressionRef,
+        name: binaryen.ExpressionRef,
+        flag: ItableFlag,
+    ) {
+        const flagAndIndexRef = this.module.call(
+            BuiltinNames.findPropertyFlagAndIndex,
+            [meta, name, this.module.i32.const(flag)],
+            binaryen.i32,
+        );
+        const indexRef = this.module.i32.shr_u(
+            flagAndIndexRef,
+            this.module.i32.const(4),
+        );
+        return indexRef;
     }
 
     private getPropTypeFromObj(
@@ -2740,114 +2734,6 @@ export class WASMExpressionGen {
             undefined,
             thisArg,
         );
-    }
-
-    private getOriObjInfoByFindIdx(
-        infcRef: binaryen.ExpressionRef,
-        infcType: ValueType,
-        member: MemberDescription,
-        memberValueType: ValueType,
-        valueIdx: number,
-        isSet = false,
-        callMethod = false,
-        targetValueRef?: binaryen.ExpressionRef,
-    ) {
-        const memberName = member.name;
-        const memberType = member.type;
-        const optional = member.isOptional;
-
-        /** the type of interface description */
-        const infcDescTypeRef = this.wasmTypeGen.getWASMObjOriType(infcType);
-        const infcTypeIdRef = this.module.i32.const(infcType.typeId);
-
-        const metaRef = FunctionalFuncs.getWASMObjectMeta(this.module, infcRef);
-        const typeIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
-            this.module,
-            metaRef,
-            MetaDataOffset.TYPE_ID_OFFSET,
-        );
-        const implIdRef = FunctionalFuncs.getFieldFromMetaByOffset(
-            this.module,
-            metaRef,
-            MetaDataOffset.IMPL_ID_OFFSET,
-        );
-        const castedObjRef = binaryenCAPI._BinaryenRefCast(
-            this.module.ptr,
-            infcRef,
-            infcDescTypeRef,
-        );
-        let flag = ItableFlag.UNKNOWN;
-        if (memberType === MemberType.ACCESSOR) {
-            if (isSet) {
-                flag = ItableFlag.SETTER;
-            } else {
-                flag = ItableFlag.GETTER;
-            }
-        }
-
-        const memberNameRef = this.module.i32.const(
-            this.wasmCompiler.generateRawString(memberName),
-        );
-        const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
-            metaRef,
-            memberNameRef,
-            flag,
-        );
-        const indexRef = this.module.i32.shr_u(
-            this.module.local.get(
-                flagAndIndexTmpVar.index,
-                flagAndIndexTmpVar.type,
-            ),
-            this.module.i32.const(4),
-        );
-        const flagRef = this.module.i32.and(
-            this.module.local.get(
-                flagAndIndexTmpVar.index,
-                flagAndIndexTmpVar.type,
-            ),
-            this.module.i32.const(15),
-        );
-
-        let ifTrue: binaryen.ExpressionRef;
-        let ifFalse: binaryen.ExpressionRef;
-
-        if (isSet) {
-            ifTrue = this.setObjField(castedObjRef, valueIdx, targetValueRef!);
-            ifFalse = this.dynSetInfcProperty(
-                infcRef,
-                indexRef,
-                flagRef,
-                memberValueType,
-                optional,
-                this.getPropTypeFromObj(metaRef, memberNameRef, flag),
-                targetValueRef!,
-            );
-        } else {
-            ifTrue = callMethod
-                ? this.getObjMethod(castedObjRef, valueIdx, infcDescTypeRef)
-                : this.getObjField(castedObjRef, valueIdx, infcDescTypeRef);
-            ifFalse = this.dynGetInfcProperty(
-                infcRef,
-                indexRef,
-                flagRef,
-                memberValueType,
-                optional,
-                this.getPropTypeFromObj(metaRef, memberNameRef, flag),
-            );
-        }
-        const res = this.createInfcAccessInfo(
-            this.module,
-            infcTypeIdRef,
-            typeIdRef,
-            implIdRef,
-            ifTrue,
-            ifFalse,
-            indexRef,
-            isSet,
-            optional,
-            optional && memberType !== MemberType.FIELD,
-        );
-        return res;
     }
 
     private getClassStaticField(
@@ -3992,25 +3878,12 @@ export class WASMExpressionGen {
             ownerRef,
         );
         const flag = ItableFlag.UNKNOWN;
-        const flagAndIndexTmpVar = this.getPropFlagAndIndexVarFromObj(
+        const indexRef = this.getPropIndexFromObj(
             metaRef,
             propertyOffset,
             flag,
         );
-        const indexRef = this.module.i32.shr_u(
-            this.module.local.get(
-                flagAndIndexTmpVar.index,
-                flagAndIndexTmpVar.type,
-            ),
-            this.module.i32.const(4),
-        );
-        const flagRef = this.module.i32.and(
-            this.module.local.get(
-                flagAndIndexTmpVar.index,
-                flagAndIndexTmpVar.type,
-            ),
-            this.module.i32.const(15),
-        );
+        const flagRef = this.getPropFlagFromObj(metaRef, propertyOffset, flag);
         const fieldTypeRef = this.getPropTypeFromObj(
             metaRef,
             propertyOffset,

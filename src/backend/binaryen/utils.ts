@@ -403,6 +403,17 @@ export namespace FunctionalFuncs {
         );
     }
 
+    export function isDynUndefined(
+        module: binaryen.Module,
+        valueRef: binaryen.ExpressionRef,
+    ) {
+        return module.call(
+            dyntype.dyntype_is_undefined,
+            [getDynContextRef(module), valueRef],
+            binaryen.i32,
+        );
+    }
+
     export function generateDynUndefined(module: binaryen.Module) {
         return module.call(
             dyntype.dyntype_new_undefined,
@@ -1374,11 +1385,7 @@ export namespace FunctionalFuncs {
                     );
                     // TODO: ref.null need table.get support in native API
                 } else if (rightValueType.kind === ValueTypeKind.UNDEFINED) {
-                    res = module.call(
-                        dyntype.dyntype_is_undefined,
-                        [dynCtx, leftValueRef],
-                        binaryen.i32,
-                    );
+                    res = isDynUndefined(module, leftValueRef);
                 } else if (rightValueType.kind === ValueTypeKind.NUMBER) {
                     res = operateF64F64ToDyn(
                         module,
