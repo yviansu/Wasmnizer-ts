@@ -53,7 +53,7 @@ export interface SpecializeInfo {
     (): void;
 }
 
-const builtin_objects: { [key: string]: ObjectInfo } = {
+export const builtin_objects: { [key: string]: ObjectInfo } = {
     Array: {
         type: ObjectDescriptionType.OBJECT_INSTANCE,
         id: PredefinedTypeId.ARRAY,

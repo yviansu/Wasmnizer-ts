@@ -56,6 +56,7 @@ import { Variable } from '../variable.js';
 import {
     ProcessBuiltinObjectSpecializeList,
     ForEachBuiltinObject,
+    builtin_objects,
 } from './builtin.js';
 import { ModDeclStatement, Statement } from '../statement.js';
 import { IdentifierExpression } from '../expression.js';
@@ -884,8 +885,11 @@ function removeRecWhichHasInfc(recGroupTypes: TSClass[][]) {
         let hasInfc = false;
         for (let j = 0; j < recGroupTypes[i].length; ++j) {
             if (recGroupTypes[i][j] instanceof TSInterface) {
-                hasInfc = true;
-                break;
+                const infcName = recGroupTypes[i][j].className;
+                if (!(infcName in builtin_objects)) {
+                    hasInfc = true;
+                    break;
+                }
             }
         }
         if (!hasInfc) {
