@@ -20,7 +20,11 @@ import {
     baseStructType,
 } from './glue/transform.js';
 import { assert } from 'console';
-import { infcTypeInfo, stringTypeInfo } from './glue/packType.js';
+import {
+    arrayBufferTypeInfo,
+    infcTypeInfo,
+    stringTypeInfo,
+} from './glue/packType.js';
 import { WASMGen } from './index.js';
 import {
     ArrayType,
@@ -458,20 +462,29 @@ export class WASMTypeGen {
     }
 
     createWASMArrayBufferType(type: ObjectType) {
-        // TODO
+        this.typeMap.set(type, arrayBufferTypeInfo.typeRef);
+        this.heapTypeMap.set(type, arrayBufferTypeInfo.heapTypeRef);
     }
 
     createWASMBuiltinType(type: ObjectType) {
         const builtinTypeName = type.meta.name;
         switch (builtinTypeName) {
-            case BuiltinNames.ARRAYBUFFER:
+            case BuiltinNames.ARRAYBUFFER: {
+                this.createWASMArrayBufferType(type);
+                break;
+            }
+            default: {
+                throw new UnimplementError(
+                    `${builtinTypeName} builtin type is not supported`,
+                );
+            }
         }
     }
 
     createWASMObjectType(type: ObjectType) {
         const metaInfo = type.meta;
         if (BuiltinNames.builtInObjectTypes.includes(metaInfo.name)) {
-            // TODO
+            this.createWASMBuiltinType(type);
         } else {
             if (metaInfo.isInterface) {
                 this.createWASMInfcType(type);

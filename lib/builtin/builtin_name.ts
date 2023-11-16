@@ -288,4 +288,7 @@ export namespace BuiltinNames {
     export const ObjectToStringMethod = 'toString';
     export const ObjectBuiltinMethods = [ObjectToStringMethod];
     export const getPropNamesByMeta = 'get_prop_name_by_meta';
+
+    /* builtin constructor name */
+    export const ctorName = 'construtor';
 }

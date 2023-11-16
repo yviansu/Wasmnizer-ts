@@ -15,10 +15,11 @@ import {
     stringArrayStructType,
     stringrefArrayType,
     stringrefArrayStructType,
+    arrayBufferType,
 } from './transform.js';
 import { typeInfo } from './utils.js';
 
-export const charArrayTypeInfo: typeInfo = i8ArrayType;
+export const i8ArrayTypeInfo: typeInfo = i8ArrayType;
 export const stringTypeInfo: typeInfo = stringType;
 export const numberArrayTypeInfo = numberArrayType;
 export const stringArrayTypeInfo = stringArrayType;
@@ -29,3 +30,4 @@ export const boolArrayTypeInfo = boolArrayType;
 export const anyArrayTypeInfo = anyArrayType;
 export const objectStructTypeInfo = objectStructType;
 export const infcTypeInfo = infcType;
+export const arrayBufferTypeInfo = arrayBufferType;

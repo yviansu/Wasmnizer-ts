@@ -2500,24 +2500,39 @@ export class WASMExpressionGen {
         /* currently, ctor is only in a seperate field, not be put into members */
         const metaInfo = (value.type as ObjectType).meta;
         if (!metaInfo.ctor) {
-            /* Fallback to libdyntype */
             const className = metaInfo.name;
-            return this.dyntypeInvoke(className, value.parameters, true);
-        }
-        const ctorFuncDecl = (
-            metaInfo.ctor!.methodOrAccessor!.method! as VarValue
-        ).ref as FunctionDeclareNode;
-        const thisArg = this.wasmTypeGen.getWASMThisInst(value.type);
+            if (BuiltinNames.fallbackConstructors.includes(metaInfo.name)) {
+                /* Fallback to libdyntype */
+                return this.dyntypeInvoke(className, value.parameters, true);
+            } else {
+                const ctorName = UtilFuncs.getBuiltinClassCtorName(className);
+                const args: binaryen.ExpressionRef[] = [];
+                value.parameters.forEach((param) => {
+                    const paramRef = this.wasmExprGen(param);
+                    args.push(paramRef);
+                });
+                return this.module.call(
+                    ctorName,
+                    args,
+                    this.wasmTypeGen.getWASMType(value.type),
+                );
+            }
+        } else {
+            const ctorFuncDecl = (
+                metaInfo.ctor!.methodOrAccessor!.method! as VarValue
+            ).ref as FunctionDeclareNode;
+            const thisArg = this.wasmTypeGen.getWASMThisInst(value.type);
 
-        return this.callFunc(
-            metaInfo.ctor!.valueType as FunctionType,
-            ctorFuncDecl.name,
-            objectTypeRef,
-            value.parameters,
-            ctorFuncDecl,
-            undefined,
-            thisArg,
-        );
+            return this.callFunc(
+                metaInfo.ctor!.valueType as FunctionType,
+                ctorFuncDecl.name,
+                objectTypeRef,
+                value.parameters,
+                ctorFuncDecl,
+                undefined,
+                thisArg,
+            );
+        }
     }
 
     private getClassStaticField(
