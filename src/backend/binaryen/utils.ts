@@ -25,14 +25,14 @@ import {
     arrayToPtr,
     baseVtableType,
     emptyStructType,
-    stringArrayTypeForStringRef,
+    stringrefArrayType,
 } from './glue/transform.js';
 import {
     stringTypeInfo,
     charArrayTypeInfo,
     stringArrayTypeInfo,
     stringArrayStructTypeInfo,
-    stringArrayStructTypeInfoForStringRef,
+    stringrefArrayStructTypeInfo,
 } from './glue/packType.js';
 import {
     PredefinedTypeId,
@@ -1110,7 +1110,7 @@ export namespace FunctionalFuncs {
                 const arrayValue = binaryenCAPI._BinaryenArrayNewFixed(
                     module.ptr,
                     getConfig().enableStringRef
-                        ? stringArrayTypeForStringRef.heapTypeRef
+                        ? stringrefArrayType.heapTypeRef
                         : stringArrayTypeInfo.heapTypeRef,
                     arrayToPtr([rightValueRef]).ptr,
                     1,
@@ -1121,7 +1121,7 @@ export namespace FunctionalFuncs {
                     arrayToPtr([arrayValue, module.i32.const(1)]).ptr,
                     2,
                     getConfig().enableStringRef
-                        ? stringArrayStructTypeInfoForStringRef.heapTypeRef
+                        ? stringrefArrayStructTypeInfo.heapTypeRef
                         : stringArrayStructTypeInfo.heapTypeRef,
                 );
 

@@ -86,6 +86,7 @@ export namespace BuiltinNames {
     export const SET = 'Set';
     export const OBJECTCONSTRUCTOR = 'ObjectConstructor';
     export const FUNCTIONCONSTRCTOR = 'FunctionConstructor';
+    export const ARRAYBUFFER = 'ArrayBuffer';
 
     export const builtinIdentifierArray = [
         MATH,
@@ -263,6 +264,7 @@ export namespace BuiltinNames {
 
     export const JSGlobalObjects: Set<string> = new Set();
     export const fallbackConstructors = ['Map', 'Set', 'Promise', 'Date'];
+    export const builtInObjectTypes = ['ArrayBuffer', 'DataView'];
 
     export function getSpecializedFuncName(
         mangledName: string,

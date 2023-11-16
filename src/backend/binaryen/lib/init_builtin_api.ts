@@ -14,7 +14,6 @@ import {
     StringRefNewOp,
     baseStructType,
     emptyStructType,
-    stringArrayStructTypeForStringRef,
 } from '../glue/transform.js';
 import {
     UtilFuncs,
@@ -33,8 +32,8 @@ import {
     stringArrayTypeInfo,
     stringArrayStructTypeInfo,
     stringTypeInfo,
-    stringArrayStructTypeInfoForStringRef,
-    stringArrayTypeInfoForStringRef,
+    stringrefArrayStructTypeInfo,
+    stringrefArrayTypeInfo,
 } from '../glue/packType.js';
 import { array_get_data, array_get_length_i32 } from './array_utils.js';
 import { SemanticsKind } from '../../../semantics/semantics_nodes.js';
@@ -105,10 +104,7 @@ function getPropNameThroughMeta(module: binaryen.Module) {
         strLenIndex = 10;
 
     const obj = module.local.get(objIndex, baseStructType.typeRef);
-    const elems = module.local.get(
-        elemsIndex,
-        stringArrayTypeInfoForStringRef.typeRef,
-    );
+    const elems = module.local.get(elemsIndex, stringrefArrayTypeInfo.typeRef);
     const meta = module.local.get(metaIndex, binaryen.i32);
     const mataFieldsCount = module.local.get(
         metaFieldsCountIndex,
@@ -223,7 +219,7 @@ function getPropNameThroughMeta(module: binaryen.Module) {
             elemsIndex,
             binaryenCAPI._BinaryenArrayNew(
                 module.ptr,
-                stringArrayTypeInfoForStringRef.heapTypeRef,
+                stringrefArrayTypeInfo.heapTypeRef,
                 iterPropCount,
                 module.ref.null(binaryen.stringref),
             ),
@@ -301,7 +297,7 @@ function getPropNameThroughMeta(module: binaryen.Module) {
         module.ptr,
         arrayToPtr([elems, iterPropCount]).ptr,
         2,
-        stringArrayStructTypeInfoForStringRef.heapTypeRef,
+        stringrefArrayStructTypeInfo.heapTypeRef,
     );
     statementArray.push(module.return(stringArrayRef));
 
@@ -505,7 +501,7 @@ function string_concat_stringref(module: binaryen.Module) {
     const strsIndex = 2;
     const strs = module.local.get(
         strsIndex,
-        stringArrayStructTypeInfoForStringRef.typeRef,
+        stringrefArrayStructTypeInfo.typeRef,
     );
     const resIndex = 3;
     const res = module.local.get(resIndex, type);
@@ -516,7 +512,7 @@ function string_concat_stringref(module: binaryen.Module) {
     const strArrayIndex = 6;
     const strArray = module.local.get(
         strArrayIndex,
-        stringArrayTypeInfoForStringRef.typeRef,
+        stringrefArrayTypeInfo.typeRef,
     );
     const statementArray: binaryen.ExpressionRef[] = [];
     statementArray.push(
@@ -533,7 +529,7 @@ function string_concat_stringref(module: binaryen.Module) {
         module.ptr,
         0,
         strs,
-        stringArrayStructTypeForStringRef.typeRef,
+        stringrefArrayStructTypeInfo.typeRef,
         false,
     );
     statementArray.push(module.local.set(strsLenIndex, len));
@@ -1465,10 +1461,7 @@ function string_split_stringref(module: binaryen.Module) {
         sep_index,
         binaryenCAPI._BinaryenTypeStringref(),
     );
-    const elems = module.local.get(
-        elems_index,
-        stringArrayTypeInfoForStringRef.typeRef,
-    );
+    const elems = module.local.get(elems_index, stringrefArrayTypeInfo.typeRef);
     const searchBeg = module.local.get(searchBegIdx, binaryen.i32);
     const elems_len = module.local.get(elems_len_index, binaryen.i32);
     const sep_len = module.local.get(sep_len_index, binaryen.i32);
@@ -1534,7 +1527,7 @@ function string_split_stringref(module: binaryen.Module) {
             elems_index,
             binaryenCAPI._BinaryenArrayNew(
                 module.ptr,
-                stringArrayTypeInfoForStringRef.heapTypeRef,
+                stringrefArrayTypeInfo.heapTypeRef,
                 elems_len,
                 module.ref.null(binaryenCAPI._BinaryenTypeStringref()),
             ),
@@ -1622,7 +1615,7 @@ function string_split_stringref(module: binaryen.Module) {
         module.ptr,
         arrayToPtr([elems, module.i32.add(elems_len, module.i32.const(1))]).ptr,
         2,
-        stringArrayStructTypeInfoForStringRef.heapTypeRef,
+        stringrefArrayStructTypeInfo.heapTypeRef,
     );
     statementArray.push(module.return(structArrayRef));
 
@@ -2199,10 +2192,7 @@ function string_match_stringref(module: binaryen.Module) {
         binaryenCAPI._BinaryenTypeStringref(),
     );
     const match_pos = module.local.get(match_pos_index, binaryen.i32);
-    const arr = module.local.get(
-        arr_index,
-        stringArrayTypeInfoForStringRef.typeRef,
-    );
+    const arr = module.local.get(arr_index, stringrefArrayTypeInfo.typeRef);
     const statementArray: binaryen.ExpressionRef[] = [];
     const getMatchedPos = module.local.set(
         match_pos_index,
@@ -2227,7 +2217,7 @@ function string_match_stringref(module: binaryen.Module) {
             arr_index,
             binaryenCAPI._BinaryenArrayNew(
                 module.ptr,
-                stringArrayTypeInfoForStringRef.heapTypeRef,
+                stringrefArrayTypeInfo.heapTypeRef,
                 module.i32.const(1),
                 binaryenCAPI._BinaryenStringConst(
                     module.ptr,
@@ -2244,7 +2234,7 @@ function string_match_stringref(module: binaryen.Module) {
                     module.ptr,
                     arrayToPtr([arr, module.i32.const(1)]).ptr,
                     2,
-                    stringArrayStructTypeInfoForStringRef.heapTypeRef,
+                    stringrefArrayStructTypeInfo.heapTypeRef,
                 ),
             ),
         ),
@@ -2280,7 +2270,7 @@ function string_match_stringref(module: binaryen.Module) {
                 module.ptr,
                 arrayToPtr([arr, module.i32.const(1)]).ptr,
                 2,
-                stringArrayStructTypeInfoForStringRef.heapTypeRef,
+                stringrefArrayStructTypeInfo.heapTypeRef,
             ),
         ),
     );
@@ -3966,14 +3956,14 @@ export function callBuiltInAPIs(module: binaryen.Module) {
             binaryen.createType([
                 emptyStructType.typeRef,
                 binaryenCAPI._BinaryenTypeStringref(),
-                stringArrayStructTypeInfoForStringRef.typeRef,
+                stringrefArrayStructTypeInfo.typeRef,
             ]),
             binaryenCAPI._BinaryenTypeStringref(),
             [
                 binaryenCAPI._BinaryenTypeStringref(),
                 binaryen.i32,
                 binaryen.i32,
-                stringArrayTypeInfoForStringRef.typeRef,
+                stringrefArrayTypeInfo.typeRef,
             ],
             string_concat_stringref(module),
         );
@@ -4092,9 +4082,9 @@ export function callBuiltInAPIs(module: binaryen.Module) {
                 binaryenCAPI._BinaryenTypeStringref(),
                 binaryenCAPI._BinaryenTypeStringref(),
             ]),
-            stringArrayStructTypeInfoForStringRef.typeRef,
+            stringrefArrayStructTypeInfo.typeRef,
             [
-                stringArrayTypeInfoForStringRef.typeRef,
+                stringrefArrayTypeInfo.typeRef,
                 binaryen.i32,
                 binaryen.i32,
                 binaryen.i32,
@@ -4113,8 +4103,8 @@ export function callBuiltInAPIs(module: binaryen.Module) {
                 binaryenCAPI._BinaryenTypeStringref(),
                 binaryenCAPI._BinaryenTypeStringref(),
             ]),
-            stringArrayStructTypeInfoForStringRef.typeRef,
-            [binaryen.i32, stringArrayTypeInfoForStringRef.typeRef],
+            stringrefArrayStructTypeInfo.typeRef,
+            [binaryen.i32, stringrefArrayTypeInfo.typeRef],
             string_match_stringref(module),
         );
         module.addFunction(
@@ -4201,9 +4191,9 @@ export function callBuiltInAPIs(module: binaryen.Module) {
         module.addFunction(
             getUtilsFuncName(BuiltinNames.getPropNamesByMeta),
             baseStructType.typeRef,
-            stringArrayStructTypeInfoForStringRef.typeRef,
+            stringrefArrayStructTypeInfo.typeRef,
             [
-                stringArrayTypeInfoForStringRef.typeRef,
+                stringrefArrayTypeInfo.typeRef,
                 binaryen.i32,
                 binaryen.i32,
                 binaryen.i32,

@@ -457,22 +457,37 @@ export class WASMTypeGen {
         this.heapTypeMap.set(arrayType, arrayStructTypeInfo.heapTypeRef);
     }
 
+    createWASMArrayBufferType(type: ObjectType) {
+        // TODO
+    }
+
+    createWASMBuiltinType(type: ObjectType) {
+        const builtinTypeName = type.meta.name;
+        switch (builtinTypeName) {
+            case BuiltinNames.ARRAYBUFFER:
+        }
+    }
+
     createWASMObjectType(type: ObjectType) {
         const metaInfo = type.meta;
-        if (metaInfo.isInterface) {
-            this.createWASMInfcType(type);
-            this.createWASMClassType(type, true);
+        if (BuiltinNames.builtInObjectTypes.includes(metaInfo.name)) {
+            // TODO
         } else {
-            if (type.meta.isObjectClass) {
-                this.createStaticFields(type);
+            if (metaInfo.isInterface) {
+                this.createWASMInfcType(type);
+                this.createWASMClassType(type, true);
             } else {
-                this.createWASMClassType(type);
-            }
-            if (
-                this.staticFieldsUpdateMap.has(type) &&
-                !this.staticFieldsUpdateMap.get(type)
-            ) {
-                this.updateStaticFields(type);
+                if (type.meta.isObjectClass) {
+                    this.createStaticFields(type);
+                } else {
+                    this.createWASMClassType(type);
+                }
+                if (
+                    this.staticFieldsUpdateMap.has(type) &&
+                    !this.staticFieldsUpdateMap.get(type)
+                ) {
+                    this.updateStaticFields(type);
+                }
             }
         }
     }

@@ -111,9 +111,9 @@ import { dyntype, structdyn } from './lib/dyntype/utils.js';
 import {
     anyArrayTypeInfo,
     stringArrayStructTypeInfo,
-    stringArrayStructTypeInfoForStringRef,
+    stringrefArrayStructTypeInfo,
     stringArrayTypeInfo,
-    stringArrayTypeInfoForStringRef,
+    stringrefArrayTypeInfo,
 } from './glue/packType.js';
 import { getBuiltInFuncName } from '../../utils.js';
 import { stringTypeInfo } from './glue/packType.js';
@@ -3858,10 +3858,10 @@ export class WASMExpressionGen {
         const follows = value.follows;
         const followsExprRef: binaryen.ExpressionRef[] = [];
         const stringArrayType = getConfig().enableStringRef
-            ? stringArrayTypeInfoForStringRef
+            ? stringrefArrayTypeInfo
             : stringArrayTypeInfo;
         const stringArrayStructType = getConfig().enableStringRef
-            ? stringArrayStructTypeInfoForStringRef
+            ? stringrefArrayStructTypeInfo
             : stringArrayStructTypeInfo;
 
         for (const follow of follows) {
