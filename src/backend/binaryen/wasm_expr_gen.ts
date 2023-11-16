@@ -1343,17 +1343,38 @@ export class WASMExpressionGen {
         const ownerTypeRef = this.wasmTypeGen.getWASMValueType(owner.type);
         switch (owner.type.kind) {
             case ValueTypeKind.OBJECT: {
-                const methodRef = this.getObjMethod(
-                    ownerRef,
-                    methodIdx,
-                    ownerTypeRef,
-                );
-                return this.callFuncRef(
-                    methodRef,
-                    value.funcType,
-                    value.parameters,
-                    ownerRef,
-                );
+                if (BuiltinNames.builtInObjectTypes.includes(meta.name)) {
+                    const methodName = UtilFuncs.getBuiltinClassMethodName(
+                        meta.name,
+                        member.name,
+                    );
+                    const args: binaryen.ExpressionRef[] = [];
+                    if (value.parameters) {
+                        value.parameters.forEach((param) => {
+                            const paramRef = this.wasmExprGen(param);
+                            args.push(paramRef);
+                        });
+                    }
+                    return this.module.call(
+                        methodName,
+                        args,
+                        this.wasmTypeGen.getWASMValueType(
+                            value.funcType.returnType,
+                        ),
+                    );
+                } else {
+                    const methodRef = this.getObjMethod(
+                        ownerRef,
+                        methodIdx,
+                        ownerTypeRef,
+                    );
+                    return this.callFuncRef(
+                        methodRef,
+                        value.funcType,
+                        value.parameters,
+                        ownerRef,
+                    );
+                }
             }
             case ValueTypeKind.STRING: {
                 if (getConfig().enableStringRef) {

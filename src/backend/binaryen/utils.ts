@@ -140,6 +140,17 @@ export namespace UtilFuncs {
             .concat(BuiltinNames.ctorName);
     }
 
+    export function getBuiltinClassMethodName(
+        className: string,
+        methodName: string,
+    ) {
+        return BuiltinNames.builtinModuleName
+            .concat(BuiltinNames.moduleDelimiter)
+            .concat(className)
+            .concat(BuiltinNames.moduleDelimiter)
+            .concat(methodName);
+    }
+
     export function getLastElemOfBuiltinName(builtinName: string) {
         const levelNames = builtinName.split(BuiltinNames.moduleDelimiter);
         return levelNames[levelNames.length - 1];
