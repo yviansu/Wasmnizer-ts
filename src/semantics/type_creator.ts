@@ -71,6 +71,7 @@ import {
 } from './runtime.js';
 import { buildExpression, newCastValue } from './expression_builder.js';
 import { DefaultTypeId } from '../utils.js';
+import { BuiltinNames } from '../../lib/builtin/builtin_name.js';
 
 export function isObjectType(kind: ValueTypeKind): boolean {
     return (
@@ -455,8 +456,10 @@ export function createObjectType(
     if (objectType) {
         return objectType as ObjectType;
     }
-    if (IsBuiltinObject(clazz.className)) {
-        return createBuiltinObjectType(clazz, context);
+    if (clazz.mangledName.includes(BuiltinNames.builtinTypeManglePrefix)) {
+        if (IsBuiltinObject(clazz.className)) {
+            return createBuiltinObjectType(clazz, context);
+        }
     }
     let mangledName = clazz.mangledName;
     if (mangledName.length == 0) mangledName = clazz.className;

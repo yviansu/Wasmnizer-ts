@@ -1083,26 +1083,21 @@ export class WASMExpressionGen {
         /* Array.xx, console.log */
         const ownerType = value.owner.type as ObjectType;
         const meta = ownerType.meta;
-        let isBuiltIn = true;
+        let isBuiltIn: boolean;
         const memberIdx = value.index;
         const member = meta.members[memberIdx];
         let target = meta.name;
 
-        /* meta's name is the interface name, it various from the global name */
-        if (target.includes('ArrayConstructor')) {
-            target = 'Array';
-        } else if (target.includes('Console')) {
-            target = 'console';
-        } else if (target.includes('Math')) {
-            target = 'Math';
+        if (BuiltinNames.builtInObjectTypes.includes(target)) {
+            isBuiltIn = true;
         } else {
+            isBuiltIn = false;
             if (member.isStaic) {
                 /* Class static method */
                 if (member.isOwn) {
                     target = (value.owner as VarValue).index as string;
                 } else {
                     let baseMeta = meta.base;
-
                     while (baseMeta) {
                         const member = baseMeta.members[memberIdx];
                         if (member.isOwn) {
@@ -1112,15 +1107,17 @@ export class WASMExpressionGen {
 
                         baseMeta = baseMeta.base;
                     }
-
                     if (!baseMeta) {
                         throw new Error(
                             `Can not find static field ${member.name} in inherit chain of ${meta.name}}`,
                         );
                     }
                 }
+            } else {
+                throw Error(
+                    `offsetCall for ${target}|${member.name} is invalid`,
+                );
             }
-            isBuiltIn = false;
         }
 
         return this.callBuiltinOrStaticMethod(
@@ -1487,20 +1484,20 @@ export class WASMExpressionGen {
         const shapeMember = shapeMeta.members[value.index];
         const args = value.parameters;
         let target = shapeMeta.name;
-        let isBuiltin = false;
 
         /* Workaround: should use meta.isBuiltin, but currently only class defined
             inside src/semantics/builtin.ts will be marked as builtin. After that
             issue fixed, we should modify the code here */
-        if (target.includes('Console')) {
-            target = 'console';
-            isBuiltin = true;
-        } else if (target.includes('Math')) {
-            target = 'Math';
-            isBuiltin = true;
-        }
-
-        if (isBuiltin) {
+        if (
+            BuiltinNames.builtInObjectTypes.some((elem) => {
+                if (target.includes(elem)) {
+                    target = elem;
+                    return true;
+                } else {
+                    return false;
+                }
+            })
+        ) {
             return this.callBuiltinOrStaticMethod(
                 shapeMember,
                 target,

@@ -311,7 +311,6 @@ interface ArrayBuffer {
     slice(begin: number, end?: number): ArrayBuffer;
 }
 interface ArrayBufferConstructor {
-    readonly prototype: ArrayBuffer;
     new (byteLength: number): ArrayBuffer;
     isView(arg: any): arg is ArrayBufferView;
 }
@@ -341,7 +340,6 @@ interface DataView {
 }
 
 interface DataViewConstructor {
-    readonly prototype: DataView;
     new (
         buffer: ArrayBufferLike & { BYTES_PER_ELEMENT?: never },
         byteOffset?: number,

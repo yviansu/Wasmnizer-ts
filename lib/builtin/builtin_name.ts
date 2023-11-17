@@ -113,7 +113,7 @@ export namespace BuiltinNames {
     export const mathCeilFuncName = 'Math|ceil';
     export const mathFloorFuncName = 'Math|floor';
     export const mathTruncFuncName = 'Math|trunc';
-    export const arrayIsArrayFuncName = 'Array|isArray';
+    export const arrayIsArrayFuncName = 'ArrayConstructor|isArray';
     export const stringConcatFuncName = 'String|concat';
     export const stringSliceFuncName = 'String|slice';
     export const stringEQFuncName = 'string_eq';
@@ -264,7 +264,15 @@ export namespace BuiltinNames {
 
     export const JSGlobalObjects: Set<string> = new Set();
     export const fallbackConstructors = ['Map', 'Set', 'Promise', 'Date'];
-    export const builtInObjectTypes = ['ArrayBuffer', 'DataView'];
+    export const builtInObjectTypes = [
+        'ArrayBuffer',
+        'DataView',
+        'ArrayBufferConstructor',
+        'Math',
+        'Console',
+        'Array',
+        'ArrayConstructor',
+    ];
 
     export function getSpecializedFuncName(
         mangledName: string,
