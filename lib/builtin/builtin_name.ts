@@ -263,7 +263,13 @@ export namespace BuiltinNames {
     ];
 
     export const JSGlobalObjects: Set<string> = new Set();
-    export const fallbackConstructors = ['Map', 'Set', 'Promise', 'Date'];
+    export const fallbackConstructors = [
+        'Map',
+        'Set',
+        'Promise',
+        'Date',
+        'Error',
+    ];
     export const builtInObjectTypes = [
         'ArrayBuffer',
         'DataView',

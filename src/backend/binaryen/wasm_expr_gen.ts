@@ -2519,6 +2519,7 @@ export class WASMExpressionGen {
         const metaInfo = (value.type as ObjectType).meta;
         if (!metaInfo.ctor) {
             const className = metaInfo.name;
+            /* workaround: Error constructor is not defined, so we can fallback temporarily */
             if (BuiltinNames.fallbackConstructors.includes(metaInfo.name)) {
                 /* Fallback to libdyntype */
                 return this.dyntypeInvoke(className, value.parameters, true);
