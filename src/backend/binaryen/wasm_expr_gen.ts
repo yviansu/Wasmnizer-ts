@@ -1283,18 +1283,17 @@ export class WASMExpressionGen {
             thisRef,
         );
 
-        if (valueType instanceof ArrayType) {
-            /* methodCallResultRef's type may not match the real return type
-             * if real return type is not primitive type, we should do cast.
-             */
-            if (this.wasmTypeGen.hasHeapType(realReturnType)) {
-                res = binaryenCAPI._BinaryenRefCast(
-                    this.module.ptr,
-                    res,
-                    this.wasmTypeGen.getWASMValueType(realReturnType),
-                );
-            }
+        /* methodCallResultRef's type may not match the real return type
+         * if real return type is not primitive type, we should do cast.
+         */
+        if (this.wasmTypeGen.hasHeapType(realReturnType)) {
+            res = binaryenCAPI._BinaryenRefCast(
+                this.module.ptr,
+                res,
+                this.wasmTypeGen.getWASMValueType(realReturnType),
+            );
         }
+
         return res;
     }
 
@@ -1355,12 +1354,13 @@ export class WASMExpressionGen {
                             args.push(paramRef);
                         });
                     }
-                    return this.module.call(
+                    return this.callClassMethod(
+                        value.funcType,
+                        value.funcType.returnType,
                         methodName,
-                        args,
-                        this.wasmTypeGen.getWASMValueType(
-                            value.funcType.returnType,
-                        ),
+                        ownerRef,
+                        owner.type,
+                        value.parameters,
                     );
                 } else {
                     const methodRef = this.getObjMethod(

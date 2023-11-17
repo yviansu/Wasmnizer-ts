@@ -4639,13 +4639,25 @@ export function callBuiltInAPIs(module: binaryen.Module) {
         binaryen.i32,
     );
 
-    /* builtin class constructor */
+    /* builtin class methods */
     module.addFunction(
         UtilFuncs.getBuiltinClassCtorName(BuiltinNames.ARRAYBUFFER),
         binaryen.createType([binaryen.f64]),
         arrayBufferTypeInfo.typeRef,
         [binaryen.i32],
         arrayBufferConstructor(module),
+    );
+    module.addFunctionImport(
+        UtilFuncs.getBuiltinClassMethodName(BuiltinNames.ARRAYBUFFER, 'slice'),
+        'env',
+        'arraybuffer_slice',
+        binaryen.createType([
+            binaryen.anyref,
+            binaryen.anyref,
+            binaryen.f64,
+            binaryen.anyref,
+        ]),
+        binaryen.anyref,
     );
 }
 
