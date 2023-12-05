@@ -423,13 +423,14 @@ export function post(
     cb: (resp: wamr_response | null) => void,
 ): void {
     const req = new wamr_request(
-        g_mid++,
+        g_mid,
         url,
         COAP_POST,
         0,
         payload,
         payload_len,
     );
+    g_mid = g_mid + 1;
 
     do_request(req, cb);
 }
@@ -440,13 +441,14 @@ export function get(
     cb: (resp: wamr_response | null) => void,
 ): void {
     const req = new wamr_request(
-        g_mid++,
+        g_mid,
         url,
         COAP_GET,
         0,
         new ArrayBuffer(0),
         0,
     );
+    g_mid = g_mid + 1;
 
     do_request(req, cb);
 }
@@ -458,14 +460,8 @@ export function put(
     tag: string,
     cb: (resp: wamr_response | null) => void,
 ): void {
-    const req = new wamr_request(
-        g_mid++,
-        url,
-        COAP_PUT,
-        0,
-        payload,
-        payload_len,
-    );
+    const req = new wamr_request(g_mid, url, COAP_PUT, 0, payload, payload_len);
+    g_mid = g_mid + 1;
 
     do_request(req, cb);
 }
@@ -476,13 +472,14 @@ export function del(
     cb: (resp: wamr_response | null) => void,
 ): void {
     const req = new wamr_request(
-        g_mid++,
+        g_mid,
         url,
         COAP_DELETE,
         0,
         new ArrayBuffer(0),
         0,
     );
+    g_mid = g_mid + 1;
 
     do_request(req, cb);
 }
@@ -518,13 +515,14 @@ export function publish_event(
     payload_len: number,
 ): void {
     const req = new wamr_request(
-        g_mid++,
+        g_mid,
         url,
         COAP_EVENT,
         fmt,
         payload,
         payload_len,
     );
+    g_mid = g_mid + 1;
 
     const msg = pack_request(req);
 
