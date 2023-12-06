@@ -1,9 +1,7 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2023 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-
-import * as timer from './timer';
 
 declare function wasm_response_send(buffer: ArrayBuffer, size: i32): boolean;
 
@@ -12,6 +10,14 @@ declare function wasm_register_resource(url: ArrayBuffer): void;
 declare function wasm_post_request(buffer: ArrayBuffer, size: i32): void;
 
 declare function wasm_sub_event(url: ArrayBuffer): void;
+
+declare function wasm_create_timer(a: i32, b: boolean, c: boolean): i32;
+
+declare function wasm_timer_cancel(a: i32): void;
+
+declare function wasm_timer_restart(a: i32, b: i32): void;
+
+declare function wasm_get_sys_tick_ms(): i32;
 
 const COAP_GET = 1;
 const COAP_POST = 2;
@@ -57,12 +63,27 @@ export enum CoAP_Status {
     PING_RESPONSE,
 }
 
+class user_timer {
+    timer_id: i32 = 0;
+    timeout: i32;
+    period = false;
+    cb: () => void;
+
+    constructor(cb: () => void, timeout: i32, period: boolean) {
+        this.cb = cb;
+        this.timeout = timeout;
+        this.period = period;
+        this.timer_id = timer_create(this.timeout, this.period, true);
+    }
+}
+
+const timer_list = new Array<user_timer>();
 let g_mid: i32 = 0;
 let transaction_list = new Array<wamr_transaction>();
 const REQUEST_PACKET_FIX_PART_LEN = 18;
 const RESPONSE_PACKET_FIX_PART_LEN = 16;
 const TRANSACTION_TIMEOUT_MS = 5000;
-let g_trans_timer: timer.user_timer;
+let g_trans_timer: user_timer;
 
 const Reg_Event = 0;
 const Reg_Request = 1;
@@ -139,17 +160,54 @@ class wamr_resource {
     }
 }
 
+export function timer_create(a: i32, b: boolean, c: boolean): i32 {
+    return wasm_create_timer(a, b, c);
+}
+
+export function setTimeout(cb: () => void, timeout: i32): user_timer {
+    const timer = new user_timer(cb, timeout, false);
+    timer_list.push(timer);
+
+    return timer;
+}
+
+export function setInterval(cb: () => void, timeout: i32): user_timer {
+    const timer = new user_timer(cb, timeout, true);
+    timer_list.push(timer);
+
+    return timer;
+}
+
+export function timer_cancel(timer: user_timer): void {
+    wasm_timer_cancel(timer.timer_id);
+
+    let i = 0;
+    for (i = 0; i < timer_list.length; i++) {
+        if (timer_list[i].timer_id == timer.timer_id) break;
+    }
+
+    timer_list.splice(i, 1);
+}
+
+export function timer_restart(timer: user_timer, interval: number): void {
+    wasm_timer_restart(timer.timer_id, interval);
+}
+
+export function now(): i32 {
+    return wasm_get_sys_tick_ms();
+}
+
 function is_expire(
     trans: wamr_transaction,
     index: i32,
     array: Array<wamr_transaction>,
 ): boolean {
-    const now = timer.now();
+    const now_time = now();
 
     const elapsed_ms =
-        now < trans.time
-            ? now + (0xffffffff - trans.time) + 1
-            : now - trans.time;
+        now_time < trans.time
+            ? now_time + (0xffffffff - trans.time) + 1
+            : now_time - trans.time;
 
     return elapsed_ms >= TRANSACTION_TIMEOUT_MS;
 }
@@ -159,18 +217,18 @@ function not_expire(
     index: i32,
     array: Array<wamr_transaction>,
 ): boolean {
-    const now = timer.now();
+    const now_time = now();
 
     const elapsed_ms =
-        now < trans.time
-            ? now + (0xffffffff - trans.time) + 1
-            : now - trans.time;
+        now_time < trans.time
+            ? now_time + (0xffffffff - trans.time) + 1
+            : now_time - trans.time;
 
     return elapsed_ms < TRANSACTION_TIMEOUT_MS;
 }
 
 function transaction_timeout_handler(): void {
-    let now = timer.now();
+    let now_time = now();
 
     const expired = transaction_list.filter(is_expire);
     transaction_list = transaction_list.filter(not_expire);
@@ -182,16 +240,16 @@ function transaction_timeout_handler(): void {
 
     if (transaction_list.length > 0) {
         let elpased_ms: number;
-        now = timer.now();
-        if (now < transaction_list[0].time) {
-            elpased_ms = now + (0xffffffff - transaction_list[0].time) + 1;
+        now_time = now();
+        if (now_time < transaction_list[0].time) {
+            elpased_ms = now_time + (0xffffffff - transaction_list[0].time) + 1;
         } else {
-            elpased_ms = now - transaction_list[0].time;
+            elpased_ms = now_time - transaction_list[0].time;
         }
         const ms_to_expiry = TRANSACTION_TIMEOUT_MS - elpased_ms;
-        timer.timer_restart(g_trans_timer, ms_to_expiry);
+        timer_restart(g_trans_timer, ms_to_expiry);
     } else {
-        timer.timer_cancel(g_trans_timer);
+        timer_cancel(g_trans_timer);
     }
 }
 
@@ -206,7 +264,7 @@ function transaction_add(trans: wamr_transaction): void {
     transaction_list.push(trans);
 
     if (transaction_list.length == 1) {
-        g_trans_timer = timer.setTimeout(
+        g_trans_timer = setTimeout(
             transaction_timeout_handler,
             TRANSACTION_TIMEOUT_MS,
         );
@@ -360,7 +418,7 @@ function do_request(
     req: wamr_request,
     cb: (resp: wamr_response | null) => void,
 ): void {
-    const trans = new wamr_transaction(req.mid, timer.now(), cb);
+    const trans = new wamr_transaction(req.mid, now(), cb);
     const msg = pack_request(req);
 
     transaction_add(trans);
@@ -578,20 +636,28 @@ export function on_response(buffer: ArrayBuffer, size: i32): void {
         if (transaction_list.indexOf(trans) == 0) {
             if (transaction_list.length >= 2) {
                 let elpased_ms: number;
-                const now = timer.now();
-                if (now < transaction_list[1].time) {
+                const now_time = now();
+                if (now_time < transaction_list[1].time) {
                     elpased_ms =
-                        now + (0xffffffff - transaction_list[1].time) + 1;
+                        now_time + (0xffffffff - transaction_list[1].time) + 1;
                 } else {
-                    elpased_ms = now - transaction_list[1].time;
+                    elpased_ms = now_time - transaction_list[1].time;
                 }
                 const ms_to_expiry = TRANSACTION_TIMEOUT_MS - elpased_ms;
-                timer.timer_restart(g_trans_timer, ms_to_expiry);
+                timer_restart(g_trans_timer, ms_to_expiry);
             } else {
-                timer.timer_cancel(g_trans_timer);
+                timer_cancel(g_trans_timer);
             }
         }
 
         trans.cb(resp);
+    }
+}
+
+export function on_timer_callback(on_timer_id: i32): void {
+    for (let i = 0; i < timer_list.length; i++) {
+        if (timer_list[i].timer_id == on_timer_id) {
+            timer_list[i].cb();
+        }
     }
 }
