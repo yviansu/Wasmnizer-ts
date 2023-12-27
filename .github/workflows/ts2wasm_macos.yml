@@ -86,7 +86,7 @@ jobs:
     strategy:
       matrix:
         target: [
-          "ARM64"
+          "arm64"
         ]
 
     steps:
