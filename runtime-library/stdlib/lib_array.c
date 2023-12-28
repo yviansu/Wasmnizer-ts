@@ -905,6 +905,7 @@ array_every_some_generic(wasm_exec_env_t exec_env, void *ctx, void *obj,
                          void *closure, bool is_every)
 {
     uint32_t i, len, elem_size;
+    wasm_value_t tmp_value;
     bool tmp, res = false;
     wasm_array_obj_t arr_ref = get_array_ref(obj);
 
@@ -939,7 +940,8 @@ array_every_some_generic(wasm_exec_env_t exec_env, void *ctx, void *obj,
 
         wasm_runtime_call_func_ref(exec_env, (wasm_func_obj_t)func_obj.gc_obj,
                                    argc, argv);
-        tmp = argv[0];
+        bh_memcpy_s(&tmp_value, sizeof(uint32), argv, sizeof(uint32));
+        tmp = (bool)tmp_value.i32;
         if (!tmp && is_every) {
             return false;
         }
