@@ -341,13 +341,13 @@ console.log(
     `    * ${totalCompilationFail} cases failed due to compilation error`,
 );
 if (totalCompilationFail > 0) {
-    console.log(`    * they are ${totalCompilationFailCases.join(', ')}`);
+    console.log(`        * they are ${totalCompilationFailCases.join(', ')}`);
 }
 console.log(
     `    * ${totalNeedManualValidation} cases need manual validation due to complex return type`,
 );
 if (totalNeedManualValidation > 0) {
-    console.log(`    * they are ${totalRunFailCases.join(', ')}`);
+    console.log(`        * they are ${totalRunFailCases.join(', ')}`);
 }
 console.log(`-------------------------------------------------------------`);
 console.log(`    * ${totalSkippedCases} cases skipped`);
