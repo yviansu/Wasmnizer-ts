@@ -1622,7 +1622,6 @@ array_includes_anyref(wasm_exec_env_t exec_env, void *ctx, void *obj,
     double from_idx_double;
     bool elem_is_string;
     wasm_value_t value = { 0 };
-    wasm_obj_t tmp_elem = { 0 };
     uint32_t len = get_array_length(obj);
     wasm_array_obj_t arr_ref = get_array_ref(obj);
     dyn_value_t const from_idx_value =
@@ -1663,8 +1662,8 @@ array_includes_anyref(wasm_exec_env_t exec_env, void *ctx, void *obj,
         }
         else {
             /* compare by address */
-            tmp_elem = value.gc_obj;
-            if (tmp_elem == search_elem) {
+            if (value.gc_obj == search_elem) {
+                printf("address is equal\n");
                 return true;
             }
         }
