@@ -140,6 +140,8 @@ let totalFail = 0;
 let totalCompilationFail = 0;
 let totalNeedManualValidation = 0;
 let totalSkippedCases = 0;
+const totalCompilationFailCases: string[] = [];
+const totalRunFailCases: string[] = [];
 
 validationItems.forEach((item) => {
     const sourceFile = `${SAMPLES_DIR}/${item.module}.ts`;
@@ -213,6 +215,7 @@ validationItems.forEach((item) => {
 
         if (!compilationSuccess) {
             totalCompilationFail++;
+            totalCompilationFailCases.push(itemName);
 
             fs.appendFileSync(
                 TEST_LOG_FILE,
@@ -277,6 +280,7 @@ validationItems.forEach((item) => {
                 TEST_LOG_FILE,
                 `===================================================================================\n\n\n`,
             );
+            totalRunFailCases.push(itemName);
             totalFail++;
         } else {
             const expected = entry.result;
@@ -312,6 +316,7 @@ validationItems.forEach((item) => {
                     TEST_LOG_FILE,
                     `===================================================================================\n\n\n`,
                 );
+                totalRunFailCases.push(itemName);
                 totalFail++;
 
                 if (executOutput.indexOf('ref')) {
@@ -332,9 +337,11 @@ console.log(`In the ${totalFail} failed cases:`);
 console.log(
     `    * ${totalCompilationFail} cases failed due to compilation error`,
 );
+console.log(`    * they are ${totalCompilationFailCases.join(', ')}`);
 console.log(
     `    * ${totalNeedManualValidation} cases need manual validation due to complex return type`,
 );
+console.log(`    * they are ${totalRunFailCases.join(', ')}`);
 console.log(`-------------------------------------------------------------`);
 console.log(`    * ${totalSkippedCases} cases skipped`);
 
