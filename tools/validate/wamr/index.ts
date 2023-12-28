@@ -296,6 +296,9 @@ validationItems.forEach((item) => {
                 );
                 fs.appendFileSync(TEST_LOG_FILE, `\tExpected: ${expected}\n`);
                 fs.appendFileSync(TEST_LOG_FILE, `\tGot: ${executOutput}\n`);
+                console.log(`\t${itemName} run failed:`);
+                console.log(`\tExpected: ${expected}\n`);
+                console.log(`\tGot: ${executOutput}\n`);
                 fs.appendFileSync(
                     TEST_LOG_FILE,
                     `-----------------------------------------------------------------------------------\n`,
@@ -337,11 +340,15 @@ console.log(`In the ${totalFail} failed cases:`);
 console.log(
     `    * ${totalCompilationFail} cases failed due to compilation error`,
 );
-console.log(`    * they are ${totalCompilationFailCases.join(', ')}`);
+if (totalCompilationFail > 0) {
+    console.log(`    * they are ${totalCompilationFailCases.join(', ')}`);
+}
 console.log(
     `    * ${totalNeedManualValidation} cases need manual validation due to complex return type`,
 );
-console.log(`    * they are ${totalRunFailCases.join(', ')}`);
+if (totalNeedManualValidation > 0) {
+    console.log(`    * they are ${totalRunFailCases.join(', ')}`);
+}
 console.log(`-------------------------------------------------------------`);
 console.log(`    * ${totalSkippedCases} cases skipped`);
 
