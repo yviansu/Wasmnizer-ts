@@ -470,8 +470,12 @@ export class WASMTypeGen {
 
     createWASMObjectType(type: ObjectType) {
         const metaInfo = type.meta;
+        const levelNames = metaInfo.name.split(BuiltinNames.moduleDelimiter);
+        const objectName = levelNames[levelNames.length - 1].split('<')[0];
         if (BuiltinNames.builtInObjectTypes.includes(metaInfo.name)) {
             this.createWASMBuiltinType(type);
+        } else if (BuiltinNames.WASMLibraryTypes.includes(objectName)) {
+            this.createWASMLibraryType(type, objectName);
         } else {
             if (metaInfo.isInterface) {
                 this.createWASMInfcType(type);
@@ -488,6 +492,34 @@ export class WASMTypeGen {
                 ) {
                     this.updateStaticFields(type);
                 }
+            }
+        }
+    }
+
+    createWASMArrayLibraryType(type: ObjectType) {
+        this.typeMap.set(type, arrayBufferTypeInfo.typeRef);
+        this.heapTypeMap.set(type, arrayBufferTypeInfo.heapTypeRef);
+    }
+
+    createWASMStructLibraryType(type: ObjectType) {
+        this.typeMap.set(type, dataViewTypeInfo.typeRef);
+        this.heapTypeMap.set(type, dataViewTypeInfo.heapTypeRef);
+    }
+
+    createWASMLibraryType(type: ObjectType, libraryTypeName: string) {
+        switch (libraryTypeName) {
+            case BuiltinNames.WASMARRAY: {
+                this.createWASMArrayLibraryType(type);
+                break;
+            }
+            case BuiltinNames.WASMSTRUCT: {
+                this.createWASMStructLibraryType(type);
+                break;
+            }
+            default: {
+                throw new UnimplementError(
+                    `${libraryTypeName} is not supported`,
+                );
             }
         }
     }
