@@ -44,16 +44,22 @@ class WASMArray<
         return new WASMArray<T, P, M, N>([], {} as P, {} as M, {} as N);
     }
 
-    push(...items: T[]): number {
-        return this.elements.push(...items);
-    }
-
     getElem(index: i32): T {
         return this.elements[index];
     }
 
     setElem(index: i32, elemValue: T) {
         this.elements[index] = elemValue;
+    }
+
+    push(...items: T[]): number {
+        return this.elements.push(...items);
+    }
+
+    findIndex(
+        predicate: (value: T, index: number, obj: T[]) => boolean,
+    ): number {
+        return this.elements.findIndex(predicate);
     }
 }
 
@@ -169,6 +175,35 @@ const struct2 = WASMStruct.createWithNoBaseType<
     [Mutability_Mutable, Mutability_Mutable],
     Nullability_Nullable
 >([1, 'hi'], [{}, {}], [{}, {}], {});
-console.log(struct2);
 struct1.setField<number>(0, 20);
 struct1.getField<number>(0);
+
+// eg. Map
+// ts code
+// const map_instance = new Map<number, string>();
+// map_instance.set(1, 'hi');
+// const value = map_instance.get(1);
+const keys_arr = WASMArray.createWithDefaultValue<
+    number,
+    PackedType_Not_Packed,
+    Mutability_Mutable,
+    Nullability_Nullable
+>();
+const values_arr = WASMArray.createWithDefaultValue<
+    string,
+    PackedType_Not_Packed,
+    Mutability_Mutable,
+    Nullability_Nullable
+>();
+const map_instance = WASMStruct.createWithNoBaseType<
+    [typeof keys_arr, typeof values_arr],
+    [PackedType_Not_Packed, PackedType_Not_Packed],
+    [Mutability_Mutable, Mutability_Mutable],
+    Nullability_Nullable
+>([keys_arr, values_arr], [{}, {}], [{}, {}], {});
+
+keys_arr.push(1);
+values_arr.push('hi');
+
+const index = keys_arr.findIndex((value) => value === 1);
+const value = values_arr.getElem(index);
