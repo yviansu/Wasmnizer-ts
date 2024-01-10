@@ -1621,7 +1621,8 @@ export class TypeResolver {
             (this.isTypeReference(type) ||
                 this.isInterface(type) ||
                 this.isObjectLiteral(type) ||
-                this.isObjectType(type))
+                this.isObjectType(type)) &&
+            type.symbol
         ) {
             const decls = type.symbol.declarations;
             if (decls) {
@@ -1836,7 +1837,11 @@ export class TypeResolver {
     }
 
     private isArray(type: ts.Type): type is ts.TypeReference {
-        return this.isTypeReference(type) && type.symbol.name === 'Array';
+        return (
+            this.isTypeReference(type) &&
+            type.symbol &&
+            type.symbol.name === 'Array'
+        );
     }
 
     private isFunction(type: ts.Type): type is ts.ObjectType {
