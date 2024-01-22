@@ -595,6 +595,7 @@ export function isTypeGeneric(type: Type): boolean {
         case TypeKind.STRING:
         case TypeKind.UNKNOWN:
         case TypeKind.NULL:
+        case TypeKind.ENUM:
         case TypeKind.WASM_I32:
         case TypeKind.WASM_I64:
         case TypeKind.WASM_F32:

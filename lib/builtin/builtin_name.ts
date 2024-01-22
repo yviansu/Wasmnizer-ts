@@ -94,6 +94,10 @@ export namespace BuiltinNames {
     export const DATAVIEW = 'DataView';
     export const STRINGCONSTRCTOR = 'StringConstructor';
 
+    // wasm library type name
+    export const WASMARRAY = 'WASMArray';
+    export const WASMSTRUCT = 'WASMStruct';
+
     // decorator name
     export const decorator = 'binaryen';
 
@@ -269,6 +273,7 @@ export namespace BuiltinNames {
         'ArrayConstructor',
         'StringConstructor',
     ];
+    export const WASMLibraryTypes = [WASMARRAY, WASMSTRUCT];
 
     export function getSpecializedFuncName(
         mangledName: string,
